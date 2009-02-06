@@ -1,0 +1,208 @@
+#!/usr/bin/python
+# $Id: xtalk.py,v 1.2 2006/10/06 12:30:42 normanr Exp $
+import sys,os,xmpp,time,select,socket,asyncore,base64
+
+class VimJabber:
+    #Vim Executable to use
+    _vim = 'vim'
+    _rosterFile = '/tmp/vimchatBuddies'
+    _roster = {}
+
+    #{{{ __init__
+    def __init__(self, vimServer, jidparams):
+        self.vimServer = vimServer
+        self.jidparams = jidparams
+    #}}}
+    #{{{ _writeRoster
+    def _writeRoster(self):
+        #write roster to file
+        rF = open(self._rosterFile,'w')
+        for item in self._roster.keys():
+            name = str(item)
+            priority = str(self._roster[item]['priority'])
+            if name and priority:
+                try:
+                    #TODO: figure out unicode stuff here
+                    rF.write(name + "\n")
+                except:
+                    rF.write(name + "\n")
+
+            else:
+                rF.write(name + "\n")
+                #rF.write("{{{ " + item + "\n" + item + "\n}}}\n")
+
+        rF.close()
+    #}}}
+
+    #{{{ start
+    def start(self):
+        jid=xmpp.protocol.JID(jidparams['jid'])
+        self.jabber =xmpp.Client(jid.getDomain(),debug=[])
+
+        con=self.jabber.connect()
+        if not con:
+            sys.stderr.write('could not connect!\n')
+            sys.exit(1)
+
+        auth=self.jabber.auth(
+            jid.getNode(),
+            jidparams['password'],
+            resource=jid.getResource())
+
+        if not auth:
+            sys.stderr.write('could not authenticate!\n')
+            sys.exit(1)
+
+        self.jabber.RegisterHandler('message',self.jabberMessageReceive)
+        self.jabber.RegisterHandler('presence',self.jabberPresenceReceive)
+        self.jabber.sendInitPresence(requestRoster=1)
+
+        #Socket stuff
+        RECV_BUF = 4096
+        self.local = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.local.bind(('',2727))
+        self.local.listen(1)
+        self.xmppS = self.jabber.Connection._sock
+        socketlist = [self.xmppS,self.local]
+        online = 1
+
+        while online:
+            (i , o, e) = select.select(socketlist,[],[],1)
+            for each in i:
+                if each == self.xmppS:
+                    self.jabber.Process(1)
+                elif each == self.local:
+                    sockfd, addr = self.local.accept()
+                    socketlist.append(sockfd)
+                else:
+                    try:
+                        data = each.recv(RECV_BUF)
+                    except:
+                        pass
+
+                    if data:
+                        try:
+                            self.clientMessageProcess(data)
+                        except Exception, e:
+                            print e
+    #}}}
+
+    #From Jabber Functions
+    #{{{ jabberMessageReceive
+    def jabberMessageReceive(self, conn, msg):
+        if msg.getBody():
+            fromJid = str(msg.getFrom())
+            body = str(msg.getBody())
+            os.system('notify-send ' + fromJid + ': ' + body)
+
+            fromJid = base64.b64encode(fromJid)
+            body = base64.b64encode(body)
+            self.toVim('VJMessageReceived(\'' + fromJid +
+                '\', \'' + body + '\')')
+            #print str(msg.getFrom()) + ": " + str(msg.getBody())
+    #}}}
+    #{{{ jabberPresenceReceive
+    def jabberPresenceReceive(self, conn, msg):
+        jid = str(msg.getFrom())
+        try:
+            jid, resource = jid.split('/')
+        except:
+            resourc = ""
+
+        try:
+            oldPriority = self._roster[jid]['priority']
+        except:
+            oldPriority = None
+
+        newPriority = msg.getPriority()
+        self._roster[jid] = {'priority': newPriority,'show':msg.getShow()}
+        self._writeRoster()
+        #self.toVim('VJRosterUpdate(\'' + jid + ' ' + str(oldPriority) + ' => ' + \
+        #    str(oldPriority)  + '\')')
+    #}}}
+
+    #To Jabber Functions
+    #{{{ jabberSendMessage
+    def jabberSendMessage(self, tojid, msg):
+        msg = msg.strip()
+        m = xmpp.protocol.Message(to=tojid,body=msg,typ='chat')
+        #print 'Message: ' + msg
+        self.jabber.send(m)
+    #}}}
+    #{{{ jabberPresenceUpdate
+    def jabberPresenceUpdate(self, show, status):
+        m = xmpp.protocol.Presence(
+            self.jidparams['jid'],
+            show=show,
+            status=status)
+        self.jabber.send(m)
+    #}}}
+    #{{{ disocnnect
+    def disconnect(self):
+        self.jabber.disconnect()
+        self.local.close()
+        sys.exit(1)
+    #}}}
+
+    #From Vim Functions
+    #{{{ clientMessageProcess
+    def clientMessageProcess(self, msg):
+        #print msg
+        msg = base64.b64decode(msg)
+        msgParts = msg.split(':',1)
+        command = msgParts[0]
+        if command == "presenceUpdate":
+            presenceParts = msgParts[1].split(':',1)
+            show = presenceParts[0]
+            status = presenceParts[1]
+            self.jabberPresenceUpdate(show, status)
+        elif command == "sendMessage":
+            messageParts = msgParts[1].split(':',1)
+            tojid = messageParts[0]
+            message = messageParts[1]
+            self.jabberSendMessage(tojid,message)
+        elif command == "disconnect":
+            self.disconnect()
+
+    #}}}
+
+    #To Vim Functions
+    #{{{ toVim
+    def toVim(self, cmd, silent=True):
+        silent = "silent" if silent else ""
+        toRun = self._vim + ' --servername %s -u NONE -U NONE --remote-send \
+            \"<C-\\\\><C-N>:%s call %s<CR>"' % (
+            self.vimServer, silent, cmd)
+        os.system(toRun);
+    #}}}
+
+
+
+
+if __name__ == '__main__':
+    #Get the vim server on the cmd line
+    if len(sys.argv) == 2:
+        vimServer = sys.argv[1]
+    else:
+        vimServer = 'vimchat'
+
+    jidparams = {}
+    if os.access(os.environ['HOME']+'/.vimchatrc',os.R_OK):
+        for ln in open(os.environ['HOME']+'/.vimchatrc').readlines():
+            if not ln[0] in ('#',';'):
+                key,val=ln.strip().split('=',1)
+                jidparams[key.lower()]=val
+    for mandatory in ['jid','password']:
+        if mandatory not in jidparams.keys():
+            open(os.environ['HOME']+'/.vimchatrc','w').write(
+                '#Uncomment fields before use and type in correct \
+                credentials.\n#JID=romeo@montague.net/resource \
+                \n#PASSWORD=juliet\n')
+            print 'Please point ~/.vimchatrc config file to valid JID \
+                for sending messages.'
+            sys.exit(0)
+
+    vj = VimJabber(vimServer, jidparams)
+    vj.start()
+
+# vim:et:fdm=marker
