@@ -17,7 +17,7 @@ map <Leader>vcb :call VimChatShowBuddyList()<CR>
 "Connect to jabber
 map <Leader>vcc :silent py vimChatSignOn()<CR>
 "Disconnect from jabber
-map <Leader>vcd :silent py vimChatSignOn()<CR>
+map <Leader>vcd :silent py vimChatSignOff()<CR>
 
 set switchbuf=usetab
 let g:rosterFile = '/tmp/vimChatRoster'
