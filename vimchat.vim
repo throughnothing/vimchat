@@ -44,6 +44,8 @@ endfunction
 python <<EOF
 import vim
 import vim,xmpp,select,threading
+from datetime import time
+from time import strftime
 
 #Global Variables
 chats = {}
@@ -65,35 +67,6 @@ class VimChat(threading.Thread):
         self._recievedMessage = callbacks
         threading.Thread.__init__ ( self )
     #}}}
-    #{{{ _writeRoster
-    def _writeRoster(self):
-        #write roster to file
-        rF = open(self._rosterFile,'w')
-        for item in self._roster.keys():
-            name = str(item)
-            priority = self._roster[item]['priority']
-            show = self._roster[item]['show']
-            if name and priority and show:
-                try:
-                    #TODO: figure out unicode stuff here
-                    rF.write(name + "\n")
-                except:
-                    rF.write(name + "\n")
-
-            else:
-                rF.write(name + "\n")
-                #rF.write("{{{ " + item + "\n" + item + "\n}}}\n")
-
-        rF.close()
-    #}}}
-    #{{{ _clearRoster
-    def _clearRoster(self,string):
-        #write roster to file
-        rF = open(self._rosterFile,'w')
-        rF.write(string)
-        rF.close()
-    #}}}
-
     #{{{ run
     def run(self):
         jid=xmpp.protocol.JID(self._jid)
@@ -134,14 +107,42 @@ class VimChat(threading.Thread):
                     pass
     #}}}
 
+    #Roster Stuff
+    #{{{ _writeRoster
+    def _writeRoster(self):
+        #write roster to file
+        rF = open(self._rosterFile,'w')
+        for item in self._roster.keys():
+            name = str(item)
+            priority = self._roster[item]['priority']
+            show = self._roster[item]['show']
+            if name and priority and show:
+                try:
+                    #TODO: figure out unicode stuff here
+                    rF.write(name + "\n")
+                except:
+                    rF.write(name + "\n")
+
+            else:
+                rF.write(name + "\n")
+                #rF.write("{{{ " + item + "\n" + item + "\n}}}\n")
+
+        rF.close()
+    #}}}
+    #{{{ _clearRoster
+    def _clearRoster(self,string):
+        #write roster to file
+        rF = open(self._rosterFile,'w')
+        rF.write(string)
+        rF.close()
+    #}}}
+
     #From Jabber Functions
     #{{{ jabberMessageReceive
     def jabberMessageReceive(self, conn, msg):
         if msg.getBody():
             fromJid = str(msg.getFrom())
             body = str(msg.getBody())
-
-            print "Message Received!"
 
             self._recievedMessage(fromJid, body)
     #}}}
@@ -151,16 +152,17 @@ class VimChat(threading.Thread):
         try:
             jid, resource = jid.split('/')
         except:
-            resourc = ""
-
-        try:
-            oldPriority = self._roster[jid]['priority']
-        except:
-            oldPriority = None
+            resource = ""
 
         newPriority = msg.getPriority()
-        self._roster[jid] = {'priority': newPriority,'show':msg.getShow()}
-        self._writeRoster()
+
+        self._roster[jid] = {
+            'priority': msg.getPriority,
+            'show':msg.getShow(),
+            'status':msg.getStatus
+        }
+
+        #self._writeRoster()
     #}}}
 
     #To Jabber Functions
@@ -185,11 +187,59 @@ class VimChat(threading.Thread):
             self.jabber.disconnect()
         except:
             pass
-        self._clearRoster("You are currently signed out of VimChat")
+    #}}}
+
+    #{{{ getRoster
+    def getRoster():
+        return self._roster
     #}}}
 #}}}
 
 
+#Python Functions
+#{{{ getTimestamp
+def getTimestamp():
+    return strftime("%H:%M")
+#}}}
+#{{{ getBufByName
+def getBufByName(name):
+    for buf in vim.buffers:
+        if buf.name == name:
+            return buf
+        
+    return None
+#}}}
+#{{{ vimChatSendBufferShow
+def vimChatSendBufferShow():
+    toJid = vim.eval('b:buddyId')
+
+    origBuf = vim.current.buffer.name
+    chats[toJid]= origBuf
+
+
+    #Create sending buffer
+    sendBuffer = "sendTo:" + toJid
+    vim.command("silent bo new " + sendBuffer)
+
+    vim.command("silent let b:buddyId = '" + toJid +  "'")
+
+    commands = """\
+        resize 4
+        setlocal noswapfile
+        setlocal nocin
+        setlocal noai
+        setlocal nosi
+        setlocal buftype=nowrite
+        setlocal wrap
+        nnoremap <buffer> <CR> :py vimChatSendMessage()<CR>
+        vnoremap <buffer> <CR> :py vimChatSendMessage()<CR>
+    """
+    vim.command(commands)
+    vim.command('normal o')
+    vim.command('normal zt')
+    vim.command('star')
+
+#}}}
 #{{{ vimChatDeleteLastMatch
 def vimChatDeleteLastMatch():
     bid = vim.eval('b:id')
@@ -211,7 +261,8 @@ def vimChatSetupChatBuffer():
     setlocal nosi
     setlocal syntax=dcl
     setlocal wrap
-    map <buffer> <C-m>s :py vimChatSendMessage()<CR>
+    nnoremap <buffer> i :py vimChatSendBufferShow()<CR>
+    nnoremap <buffer> o :py vimChatSendBufferShow()<CR>
     """
     vim.command(commands)
 
@@ -242,7 +293,7 @@ def vimChatBeginChat():
         chats[toJid] = chatFile
 
     vim.command("bad " + chatFile)
-    vim.command("e " + chatFile)
+    vim.command("tabe " + chatFile)
 
     vim.command("let b:buddyId = '" + toJid + "'")
 
@@ -256,15 +307,9 @@ def vimChatSendMessage():
     try:
         toJid = vim.eval('b:buddyId')
     except:
-        print "No chat found!"
+        print "No valid chat found!"
         return 0
 
-    origBuf = vim.current.buffer.name
-    origBuf = origBuf.split('/')
-    origBuf = origBuf[len(origBuf) - 1]
-
-    chatKeys = chats.keys()
-    chats[toJid]= origBuf
 
     r = vim.current.range
     body = ""
@@ -275,14 +320,23 @@ def vimChatSendMessage():
     global chatServer
     chatServer.jabberSendMessage(toJid, body)
 
-    msg = str(vim.current.line)
-    vim.current.line = "Me: " + msg
+    tstamp = getTimestamp()
+    chatBuf = getBufByName(chats[toJid])
+    if chatBuf:
+        chatBuf.append(tstamp + " Me: " + body)
+    else:
+        print "Could not find where to append your message!"
+
+    vim.command('hide')
 #}}}
 
 #INCOMING
 #{{{ vimChatMessageReceived
 def vimChatMessageReceived(fromJid, message):
     origBufNum = vim.current.buffer.number
+
+    #get timestamp
+    tstamp = getTimestamp()
 
     user, domain = fromJid.split('@')
     jid = fromJid
@@ -311,12 +365,12 @@ def vimChatMessageReceived(fromJid, message):
     vimChatSetupChatBuffer();
 
     messageLines = message.split("\n")
-    toAppend = user + '/' + resource + ": " + messageLines[0]
+    toAppend = tstamp + " " + user + '/' + resource + ": " + messageLines[0]
     messageLines.pop(0)
     vim.current.buffer.append(toAppend)
 
     for line in messageLines:
-        line = '\t' + line
+        line = tstamp + '\t' + line
         vim.current.buffer.append(line)
 
     vim.command("let b:id =  matchadd('Error', '\%' . line('$') . 'l')")
@@ -330,6 +384,8 @@ def vimChatSignOn():
     if chatServer:
         print "Already connected to VimChat!"
         return 0
+    else:
+        print "Connecting..."
 
     jid = vim.eval('g:vimchat_jid')
     password = vim.eval('g:vimchat_password')
