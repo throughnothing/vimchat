@@ -199,14 +199,13 @@ class VimChat(threading.Thread):
 #Python Functions
 #{{{ getTimestamp
 def getTimestamp():
-    return strftime("%H:%M")
+    return strftime("[%H:%M]")
 #}}}
 #{{{ getBufByName
 def getBufByName(name):
     for buf in vim.buffers:
         if buf.name == name:
             return buf
-        
     return None
 #}}}
 #{{{ vimChatSendBufferShow
@@ -328,6 +327,9 @@ def vimChatSendMessage():
         print "Could not find where to append your message!"
 
     vim.command('hide')
+
+    vim.command('sbuffer ' + str(chatBuf.number))
+    vim.command('normal G')
 #}}}
 
 #INCOMING
