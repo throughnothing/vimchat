@@ -1,14 +1,14 @@
-com! VimessengerSignOff py signOff()
-map <Leader>b :call VimessengerShowBuddyList()<CR>
+com! VimChatSignOff py vimChatSignOff()
+map <Leader>b :call VimChatShowBuddyList()<CR>
+map <Leader>vcc :silent py vimChatSignOn()<CR>
+map <Leader>vcd :silent py vimChatSignOn()<CR>
 
 set switchbuf=usetab
-let g:rosterFile = '/tmp/vimchatBuddies'
-highlight VimessengerDarkBlue guibg=darkblue guifg=white ctermbg=darkblue ctermfg=white
-sign define VimessengerSignNewMsg linehl=VimessengerDarkBlue
+let g:rosterFile = '/tmp/vimChatRoster'
 
-"Internal (don't talk to the server)
-"{{{ VimessengerShowBuddyList
-function! VimessengerShowBuddyList()
+"Vim Functions
+"{{{ VimChatShowBuddyList
+function! VimChatShowBuddyList()
     exe "bad " . g:rosterFile
     try
         exe "sbuffer" . g:rosterFile
@@ -18,16 +18,156 @@ function! VimessengerShowBuddyList()
 
     set nowrap
 
-    nnoremap <buffer> <silent> <Return> :py vimessengerBeginChat()<CR>
+    nnoremap <buffer> <silent> <Return> :py vimChatBeginChat()<CR>
 endfunction
 "}}}
+
 
 python <<EOF
 import vim
 chats = {}
+chatServer = ""
 
-#{{{ vimessengerSetupChatBuffer
-def vimessengerSetupChatBuffer():
+import sys,os,xmpp,time,select,socket,asyncore,base64,threading
+
+#{{{ class VimChat
+class VimChat(threading.Thread):
+    #Vim Executable to use
+    _vim = 'vim'
+    _rosterFile = '/tmp/vimChatRoster'
+    _roster = {}
+
+    #{{{ __init__
+    def __init__(self, jid, password, callbacks):
+        self._jid = jid
+        self._password = password
+        self._recievedMessage = callbacks
+        threading.Thread.__init__ ( self )
+    #}}}
+    #{{{ _writeRoster
+    def _writeRoster(self):
+        #write roster to file
+        rF = open(self._rosterFile,'w')
+        for item in self._roster.keys():
+            name = str(item)
+            priority = self._roster[item]['priority']
+            show = self._roster[item]['show']
+            if name and priority and show:
+                try:
+                    #TODO: figure out unicode stuff here
+                    rF.write(name + "\n")
+                except:
+                    rF.write(name + "\n")
+
+            else:
+                rF.write(name + "\n")
+                #rF.write("{{{ " + item + "\n" + item + "\n}}}\n")
+
+        rF.close()
+    #}}}
+    #{{{ _clearRoster
+    def _clearRoster(self,string):
+        #write roster to file
+        rF = open(self._rosterFile,'w')
+        rF.write(string)
+        rF.close()
+    #}}}
+
+    #{{{ run
+    def run(self):
+        jid=xmpp.protocol.JID(self._jid)
+        self.jabber =xmpp.Client(jid.getDomain(),debug=[])
+
+        con=self.jabber.connect()
+        if not con:
+            sys.stderr.write('could not connect!\n')
+            sys.exit(1)
+
+        auth=self.jabber.auth(
+            jid.getNode(),
+            self._password,
+            resource=jid.getResource())
+
+        if not auth:
+            sys.stderr.write('could not authenticate!\n')
+            sys.exit(1)
+
+        self.jabber.RegisterHandler('message',self.jabberMessageReceive)
+        self.jabber.RegisterHandler('presence',self.jabberPresenceReceive)
+        self.jabber.sendInitPresence(requestRoster=1)
+
+        #Socket stuff
+        RECV_BUF = 4096
+        self.xmppS = self.jabber.Connection._sock
+        socketlist = [self.xmppS]
+        online = 1
+
+        print "Connected with VimChat (jid = " + self._jid + ")"
+
+        while online:
+            (i , o, e) = select.select(socketlist,[],[],1)
+            for each in i:
+                if each == self.xmppS:
+                    self.jabber.Process(1)
+                else:
+                    pass
+    #}}}
+
+    #From Jabber Functions
+    #{{{ jabberMessageReceive
+    def jabberMessageReceive(self, conn, msg):
+        if msg.getBody():
+            fromJid = str(msg.getFrom())
+            body = str(msg.getBody())
+
+            self._recievedMessage(fromJid, body)
+    #}}}
+    #{{{ jabberPresenceReceive
+    def jabberPresenceReceive(self, conn, msg):
+        jid = str(msg.getFrom())
+        try:
+            jid, resource = jid.split('/')
+        except:
+            resourc = ""
+
+        try:
+            oldPriority = self._roster[jid]['priority']
+        except:
+            oldPriority = None
+
+        newPriority = msg.getPriority()
+        self._roster[jid] = {'priority': newPriority,'show':msg.getShow()}
+        self._writeRoster()
+    #}}}
+
+    #To Jabber Functions
+    #{{{ jabberSendMessage
+    def jabberSendMessage(self, tojid, msg):
+        msg = msg.strip()
+        m = xmpp.protocol.Message(to=tojid,body=msg,typ='chat')
+        #print 'Message: ' + msg
+        self.jabber.send(m)
+    #}}}
+    #{{{ jabberPresenceUpdate
+    def jabberPresenceUpdate(self, show, status):
+        m = xmpp.protocol.Presence(
+            self._jid,
+            show=show,
+            status=status)
+        self.jabber.send(m)
+    #}}}
+    #{{{ disconnect
+    def disconnect(self):
+        try:
+            self.jabber.disconnect()
+        except:
+            pass
+        self._clearRoster("You are currently signed out of VimChat")
+    #}}}
+#}}}
+
+#{{{ vimChatSetupChatBuffer
+def vimChatSetupChatBuffer():
     commands = """\
     setlocal noswapfile
     setlocal buftype=nowrite
@@ -36,15 +176,15 @@ def vimessengerSetupChatBuffer():
     setlocal nosi
     setlocal syntax=dcl
     setlocal wrap
-    map <buffer> <Return> :py sendMessage()<CR>
+    map <buffer> <C-m>s :py vimChatSendMessage()<CR>
     """
     vim.command(commands)
 
     # This command has to be sent by itself.
     vim.command('au CursorMoved <buffer> sign unplace *')
 #}}}
-#{{{ vimessengerBeginChat
-def vimessengerBeginChat():
+#{{{ vimChatBeginChat
+def vimChatBeginChat():
 
     toJid = vim.current.line
     toJid = toJid.strip()
@@ -70,17 +210,15 @@ def vimessengerBeginChat():
 
     vim.command("let b:buddyId = '" + toJid + "'")
 
-    vimessengerSetupChatBuffer();
+    vimChatSetupChatBuffer();
 
 #}}}
 
 #OUTGOING
-
-#{{{ sendMessage
-def sendMessage():
+#{{{ vimChatSendMessage
+def vimChatSendMessage():
     import vim,base64
 
-    #toJid = vim.current.buffer.name
     try:
         toJid = vim.eval('b:buddyId')
     except:
@@ -100,91 +238,86 @@ def sendMessage():
         line = line.rstrip('\n')
         body = body + line + '\n'
 
-    msg = base64.encodestring('sendMessage:' + toJid + ':' + body)
-
-    #vim.command("call VJSendString('" + msg + "')")
-    sendString(msg)
+    global chatServer
+    chatServer.jabberSendMessage(toJid, body)
 
     msg = str(vim.current.line)
     vim.current.line = "Me: " + msg
 #}}}
-#{{{ sendString
-def sendString(msg):
-    import socket,sys
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect(('localhost',2727))
-    s.send(msg)
-#}}}
-#{{{ signOff
-def signOff():
+
+#INCOMING (callbacks called from server)
+#{{{ vimChatMessageReceived
+def vimChatMessageReceived(fromJid, message):
+    origBufNum = vim.current.buffer.number
+
+    print "Message Recieved from: " + fromJid
+
+    user, domain = fromJid.split('@')
+    jid = fromJid
+    resource = ''
     try:
-        #vim.command('call VJSendString("disconnect:")')
-        sendString('disconnect:')
+        jid, resource = jid.split('/')
     except:
-        vim.command('echo "Failed to sign off!"')
+        resource = ""
+
+    chatKeys = chats.keys()
+    chatFile = ''
+    if jid in chatKeys:
+        chatFile = chats[jid]
+    else:
+        chatFile = jid
+        chats[jid] = chatFile
+
+    vim.command("bad " + chatFile)
+    try:
+        vim.command("sbuffer " + chatFile)
+    except:
+        vim.command("new " + chatFile)
+
+    vim.command("let b:buddyId = '" + fromJid + "'")
+
+    vimChatSetupChatBuffer();
+
+    messageLines = message.split("\n")
+    toAppend = user + '/' + resource + ": " + messageLines[0]
+    messageLines.pop(0)
+    vim.current.buffer.append(toAppend)
+
+    for line in messageLines:
+        line = '\t' + line
+        vim.current.buffer.append(line)
+
+    vim.command("normal G")
+
+    # Switch back to the original buffer.
+    vim.command("sbuffer " + str(origBufNum))
 
 #}}}
-#TODO: presenceUpdate()
-EOF
 
-"INCOMING (callbacks called from server)
-"{{{ VJMessageReceived
-function! VJMessageReceived(fromJid, message)
-python <<EOF
-import vim,base64
+#{{{ vimChatSignOn
+def vimChatSignOn():
+    global chatServer
 
-origBufNum = vim.current.buffer.number
-fromJid = base64.decodestring(vim.eval('a:fromJid'))
-message = base64.decodestring(vim.eval('a:message'))
+    jid = vim.eval('g:vimchat_jid')
+    password = vim.eval('g:vimchat_password')
 
-user, domain = fromJid.split('@')
-jid = fromJid
-resource = ''
-try:
-    jid, resource = jid.split('/')
-except:
-    resource = ""
-
-chatKeys = chats.keys()
-chatFile = ''
-if jid in chatKeys:
-    chatFile = chats[jid]
-else:
-    chatFile = jid
-    chats[jid] = chatFile
-
-vim.command("bad " + chatFile)
-try:
-    vim.command("sbuffer " + chatFile)
-except:
-    vim.command("new " + chatFile)
-
-vim.command("let b:buddyId = '" + fromJid + "'")
-
-vimessengerSetupChatBuffer();
-
-messageLines = message.split("\n")
-toAppend = user + '/' + resource + ": " + messageLines[0]
-messageLines.pop(0)
-vim.current.buffer.append(toAppend)
-
-for line in messageLines:
-    line = '\t' + line
-    vim.current.buffer.append(line)
-
-vim.command("normal G")
-
-# Clear the last sign and add a new one notify user of new message.
-vim.command('sign unplace 1')
-vim.command('sign place 1 line=' + vim.eval('line("$")')
-    + ' name=VimessengerSignNewMsg buffer='
-    + str(vim.current.buffer.number))
-
-# Switch back to the original buffer.
-vim.command("sbuffer " + str(origBufNum))
+    chatServer = VimChat(jid, password,vimChatMessageReceived)
+    chatServer.start()
+#}}}
+#{{{ vimChatSignOff
+def vimChatSignOff():
+    global chatServer
+    if chatServer:
+        try:
+            chatServer.disconnect()
+            print "Signed Off VimChat!"
+        except Exception, e:
+            print "Error signing off VimChat!"
+            print e
+    else:
+        print "Not Connected!"
+#}}}
 
 EOF
-endfunction
-"}}}
 
 " vim:et:fdm=marker:sts=4:sw=4:ts=4
