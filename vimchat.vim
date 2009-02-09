@@ -39,6 +39,8 @@ endfunction
 "}}}
 
 
+
+""""""""""Python Stuff""""""""""""""
 python <<EOF
 import vim
 import vim,xmpp,select,threading
@@ -48,6 +50,7 @@ chats = {}
 chatServer = ""
 highlights = []
 
+#Classes
 #{{{ class VimChat
 class VimChat(threading.Thread):
     #Vim Executable to use
@@ -186,6 +189,18 @@ class VimChat(threading.Thread):
     #}}}
 #}}}
 
+
+#{{{ vimChatDeleteLastMatch
+def vimChatDeleteLastMatch():
+    bid = vim.eval('b:id')
+    if bid:
+        bid = vim.eval('b:id')
+        try:
+            vim.command('call matchdelete(' + bid + ')')
+            vim.command('let b:id = ""')
+        except:
+            pass
+#}}}
 #{{{ vimChatSetupChatBuffer
 def vimChatSetupChatBuffer():
     commands = """\
@@ -200,6 +215,9 @@ def vimChatSetupChatBuffer():
     """
     vim.command(commands)
 
+    vim.command('let b:id = ""')
+    # This command has to be sent by itself.
+    vim.command('au CursorMoved <buffer> py vimChatDeleteLastMatch()')
 #}}}
 #{{{ vimChatBeginChat
 def vimChatBeginChat():
@@ -230,13 +248,6 @@ def vimChatBeginChat():
 
     vimChatSetupChatBuffer();
 
-#}}}
-#{{{ vimChatDeleteLastMatch
-def vimChatDeleteLastMatch():
-    bid = vim.eval('b:id')
-    if bid:
-        bid = vim.eval('b:id')
-        vim.command('call matchdelete(' + bid + ')')
 #}}}
 
 #OUTGOING
@@ -308,10 +319,10 @@ def vimChatMessageReceived(fromJid, message):
         line = '\t' + line
         vim.current.buffer.append(line)
 
+    vim.command("let b:id =  matchadd('Error', '\%' . line('$') . 'l')")
     vim.command("echo 'Message Received from: " + jid + "'")
     vim.command("sbuffer " + str(origBufNum))
 #}}}
-
 #{{{ vimChatSignOn
 def vimChatSignOn():
     global chatServer
@@ -341,6 +352,6 @@ def vimChatSignOff():
         print "Not Connected!"
 #}}}
 
-EOF
 
+EOF
 " vim:et:fdm=marker:sts=4:sw=4:ts=4
