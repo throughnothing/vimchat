@@ -120,6 +120,8 @@ class VimChat(threading.Thread):
             fromJid = str(msg.getFrom())
             body = str(msg.getBody())
 
+            print "Message Received!"
+
             self._recievedMessage(fromJid, body)
     #}}}
     #{{{ jabberPresenceReceive
@@ -297,6 +299,10 @@ def vimChatMessageReceived(fromJid, message):
 #{{{ vimChatSignOn
 def vimChatSignOn():
     global chatServer
+
+    if chatServer:
+        print "Already connected to VimChat!"
+        return 0
 
     jid = vim.eval('g:vimchat_jid')
     password = vim.eval('g:vimchat_password')
