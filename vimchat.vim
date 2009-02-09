@@ -25,9 +25,9 @@ let g:rosterFile = '/tmp/vimChatRoster'
 "Vim Functions
 "{{{ VimChatShowBuddyList
 function! VimChatShowBuddyList()
-    exe "bad " . g:rosterFile
     try
-        exe "sbuffer" . g:rosterFile
+        exe "silent vertical sview " . g:rosterFile
+        exe "silent wincmd H"
     catch
         exe "tabe " . g:rosterFile
     endtry
@@ -292,8 +292,8 @@ def vimChatBeginChat():
         chatFile = jid
         chats[toJid] = chatFile
 
-    vim.command("bad " + chatFile)
-    vim.command("tabe " + chatFile)
+    vim.command("q!")
+    vim.command("split " + chatFile)
 
     vim.command("let b:buddyId = '" + toJid + "'")
 
