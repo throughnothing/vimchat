@@ -1,6 +1,22 @@
+" VImChat Plugin for vim
+" This plugin allows you to connect to a jabber server and chat with
+" multiple people.
+"
+" It does not currently support other IM networks or group chat, but these are
+" on the list to be added.
+"
+" It currently only supports one jabber account at a time
+" 
+
 com! VimChatSignOff py vimChatSignOff()
-map <Leader>b :call VimChatShowBuddyList()<CR>
+com! VimChatSignOn py vimChatSignOn()
+com! VimChatShowBuddyList :call VimChatShowBuddyList()
+
+"Show the buddy list
+map <Leader>vcb :call VimChatShowBuddyList()<CR>
+"Connect to jabber
 map <Leader>vcc :silent py vimChatSignOn()<CR>
+"Disconnect from jabber
 map <Leader>vcd :silent py vimChatSignOn()<CR>
 
 set switchbuf=usetab
@@ -25,10 +41,12 @@ endfunction
 
 python <<EOF
 import vim
+import vim,xmpp,select,threading
+
+#Global Variables
 chats = {}
 chatServer = ""
-
-import sys,os,xmpp,time,select,socket,asyncore,base64,threading
+highlights = []
 
 #{{{ class VimChat
 class VimChat(threading.Thread):
@@ -182,8 +200,6 @@ def vimChatSetupChatBuffer():
     """
     vim.command(commands)
 
-    # This command has to be sent by itself.
-    vim.command('au CursorMoved <buffer> sign unplace *')
 #}}}
 #{{{ vimChatBeginChat
 def vimChatBeginChat():
@@ -215,12 +231,17 @@ def vimChatBeginChat():
     vimChatSetupChatBuffer();
 
 #}}}
+#{{{ vimChatDeleteLastMatch
+def vimChatDeleteLastMatch():
+    bid = vim.eval('b:id')
+    if bid:
+        bid = vim.eval('b:id')
+        vim.command('call matchdelete(' + bid + ')')
+#}}}
 
 #OUTGOING
 #{{{ vimChatSendMessage
 def vimChatSendMessage():
-    import vim,base64
-
     try:
         toJid = vim.eval('b:buddyId')
     except:
@@ -247,12 +268,10 @@ def vimChatSendMessage():
     vim.current.line = "Me: " + msg
 #}}}
 
-#INCOMING (callbacks called from server)
+#INCOMING
 #{{{ vimChatMessageReceived
 def vimChatMessageReceived(fromJid, message):
     origBufNum = vim.current.buffer.number
-
-    print "Message Recieved from: " + fromJid
 
     user, domain = fromJid.split('@')
     jid = fromJid
@@ -289,11 +308,8 @@ def vimChatMessageReceived(fromJid, message):
         line = '\t' + line
         vim.current.buffer.append(line)
 
-    vim.command("normal G")
-
-    # Switch back to the original buffer.
+    vim.command("echo 'Message Received from: " + jid + "'")
     vim.command("sbuffer " + str(origBufNum))
-
 #}}}
 
 #{{{ vimChatSignOn
@@ -309,6 +325,7 @@ def vimChatSignOn():
 
     chatServer = VimChat(jid, password,vimChatMessageReceived)
     chatServer.start()
+    
 #}}}
 #{{{ vimChatSignOff
 def vimChatSignOff():
