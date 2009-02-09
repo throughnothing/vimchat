@@ -8,6 +8,8 @@
 " It currently only supports one jabber account at a time
 " 
 
+"Vim Commands/Functions
+"{{{ Vim Commands/Functions
 com! VimChatSignOff py vimChatSignOff()
 com! VimChatSignOn py vimChatSignOn()
 com! VimChatShowBuddyList :call VimChatShowBuddyList()
@@ -38,10 +40,13 @@ function! VimChatShowBuddyList()
 endfunction
 "}}}
 
-
+"}}}
 
 """"""""""Python Stuff""""""""""""""
 python <<EOF
+
+#Imports/Global Vars
+#{{{ imports/global vars
 import vim
 import vim,xmpp,select,threading
 from datetime import time
@@ -50,7 +55,8 @@ from time import strftime
 #Global Variables
 chats = {}
 chatServer = ""
-highlights = []
+chatMatches = {}
+#}}}
 
 #Classes
 #{{{ class VimChat
@@ -195,8 +201,7 @@ class VimChat(threading.Thread):
     #}}}
 #}}}
 
-
-#Python Functions
+#General Functions
 #{{{ getTimestamp
 def getTimestamp():
     return strftime("[%H:%M]")
@@ -207,6 +212,76 @@ def getBufByName(name):
         if buf.name == name:
             return buf
     return None
+#}}}
+
+#{{{ addBufMatch
+def addBufMatch(buf, matchId):
+    matchKeys = chatMatches.keys() 
+    if buf in matchKeys:
+        chatMatches[buf].append(matchId)
+    else:
+        chatMatches[buf] = []
+        chatMatches[buf].append(matchId)
+        
+#}}}
+#{{{ vimChatDeleteBufferMatches
+def vimChatDeleteBufferMatches(buf):
+    if buf in chatMatches.keys():
+        for match in chatMatches[buf]:
+            vim.command('call matchdelete(' + match + ')')
+
+        chatMatches[buf] = []
+#}}}
+
+#{{{ vimChatBeginChat
+def vimChatBeginChat():
+
+    toJid = vim.current.line
+    toJid = toJid.strip()
+
+
+    user, domain = toJid.split('@')
+
+    jid = toJid
+    resource = ''
+    if jid.find('/') >= 0:
+        jid, resource = jid.split('/')
+
+    chatKeys = chats.keys()
+    chatFile = ''
+    if toJid in chatKeys:
+        chatFile = chats[toJid]
+    else:
+        chatFile = jid
+        chats[toJid] = chatFile
+
+    vim.command("q!")
+    vim.command("split " + chatFile)
+
+    vim.command("let b:buddyId = '" + toJid + "'")
+
+    vimChatSetupChatBuffer();
+
+#}}}
+#{{{ vimChatSetupChatBuffer
+def vimChatSetupChatBuffer():
+    commands = """\
+    setlocal noswapfile
+    setlocal buftype=nowrite
+    setlocal noai
+    setlocal nocin
+    setlocal nosi
+    setlocal syntax=dcl
+    setlocal wrap
+    nnoremap <buffer> i :py vimChatSendBufferShow()<CR>
+    nnoremap <buffer> o :py vimChatSendBufferShow()<CR>
+    """
+    vim.command(commands)
+
+    vim.command('let b:id = ""')
+    # This command has to be sent by itself.
+    vim.command('au CursorMoved <buffer> py vimChatDeleteBufferMatches("' + \
+        vim.current.buffer.name + '")')
 #}}}
 #{{{ vimChatSendBufferShow
 def vimChatSendBufferShow():
@@ -239,66 +314,6 @@ def vimChatSendBufferShow():
     vim.command('star')
 
 #}}}
-#{{{ vimChatDeleteLastMatch
-def vimChatDeleteLastMatch():
-    bid = vim.eval('b:id')
-    if bid:
-        bid = vim.eval('b:id')
-        try:
-            vim.command('call matchdelete(' + bid + ')')
-            vim.command('let b:id = ""')
-        except:
-            pass
-#}}}
-#{{{ vimChatSetupChatBuffer
-def vimChatSetupChatBuffer():
-    commands = """\
-    setlocal noswapfile
-    setlocal buftype=nowrite
-    setlocal noai
-    setlocal nocin
-    setlocal nosi
-    setlocal syntax=dcl
-    setlocal wrap
-    nnoremap <buffer> i :py vimChatSendBufferShow()<CR>
-    nnoremap <buffer> o :py vimChatSendBufferShow()<CR>
-    """
-    vim.command(commands)
-
-    vim.command('let b:id = ""')
-    # This command has to be sent by itself.
-    vim.command('au CursorMoved <buffer> py vimChatDeleteLastMatch()')
-#}}}
-#{{{ vimChatBeginChat
-def vimChatBeginChat():
-
-    toJid = vim.current.line
-    toJid = toJid.strip()
-
-
-    user, domain = toJid.split('@')
-
-    jid = toJid
-    resource = ''
-    if jid.find('/') >= 0:
-        jid, resource = jid.split('/')
-
-    chatKeys = chats.keys()
-    chatFile = ''
-    if toJid in chatKeys:
-        chatFile = chats[toJid]
-    else:
-        chatFile = jid
-        chats[toJid] = chatFile
-
-    vim.command("q!")
-    vim.command("split " + chatFile)
-
-    vim.command("let b:buddyId = '" + toJid + "'")
-
-    vimChatSetupChatBuffer();
-
-#}}}
 
 #OUTGOING
 #{{{ vimChatSendMessage
@@ -316,8 +331,11 @@ def vimChatSendMessage():
         line = line.rstrip('\n')
         body = body + line + '\n'
 
-    global chatServer
-    chatServer.jabberSendMessage(toJid, body)
+    if body:
+        global chatServer
+        chatServer.jabberSendMessage(toJid, body)
+    else:
+        print "Nothing to send!"
 
     tstamp = getTimestamp()
     chatBuf = getBufByName(chats[toJid])
@@ -375,7 +393,9 @@ def vimChatMessageReceived(fromJid, message):
         line = tstamp + '\t' + line
         vim.current.buffer.append(line)
 
-    vim.command("let b:id =  matchadd('Error', '\%' . line('$') . 'l')")
+    vim.command("let b:lastMatchId =  matchadd('Error', '\%' . line('$') . 'l')")
+    lastMatchId = vim.eval('b:lastMatchId')
+    addBufMatch(chatFile,lastMatchId)
     vim.command("echo 'Message Received from: " + jid + "'")
     vim.command("sbuffer " + str(origBufNum))
 #}}}
@@ -409,7 +429,6 @@ def vimChatSignOff():
     else:
         print "Not Connected!"
 #}}}
-
 
 EOF
 " vim:et:fdm=marker:sts=4:sw=4:ts=4
