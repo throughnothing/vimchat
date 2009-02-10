@@ -146,9 +146,9 @@ class VimChat(threading.Thread):
                 status = u''
             if not show:
                 if priority:
-                    show = u'online'
+                    show = u'on'
                 else:
-                    show = u'offline'
+                    show = u'off'
             if not priority:
                 priority = u''
             if not groups:
@@ -156,8 +156,8 @@ class VimChat(threading.Thread):
             
             try:
                 buddy =\
-                    u"{{{ %s -- %s\n\t%s \n\tGroups: %s\n\t%s:\n%s\n}}}\n" %\
-                    (name, show, item, groups, show, status)
+                    u"{{{ (%s) %s\n\t%s \n\tGroups: %s\n\t%s:\n%s\n}}}\n" %\
+                    (show, name, item, groups, show, status)
                 rF.write(buddy)
             except:
                 pass
