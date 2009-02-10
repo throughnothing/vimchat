@@ -8,6 +8,12 @@
 " It currently only supports one jabber account at a time
 " 
 
+if exists('g:vimchat_loaded')
+    finish
+endif
+let g:vimchat_loaded = 1
+
+
 "Vim Commands
 "{{{ Vim Commands
 com! VimChat py vimChatSignOn()
@@ -21,13 +27,27 @@ map <Leader>vcc :silent py vimChatSignOn()<CR>
 map <Leader>vcd :silent py vimChatSignOff()<CR>
 
 set switchbuf=usetab
-
-"Vim Functions
-
 "}}}
 
 
 "Vim Functions
+"{{{ VimChatCheckVars
+fu! VimChatCheckVars()
+    if !exists('g:vimchat_jid')
+        echo "Must set g:vimchat_jid in ~/.vimrc!"
+        return 0
+    endif
+    if !exists('g:vimchat_password')
+        echo "Must set g:vimchat_password in ~/.vimrc!"
+        return 0
+    endif
+    if !exists('g:vimchat_buddylistwidth')
+        let g:vimchat_buddylistwidth=30
+    endif
+
+    return 1
+endfu
+"}}}
 "{{{ VimChatFoldText
 function! VimChatFoldText()
     let line=substitute(getline(v:foldstart),'^[ \t#]*\([^=]*\).*', '\1', '')
@@ -189,10 +209,12 @@ def vimChatShowBuddyList():
     chatServer.writeRoster()
 
     rosterFile = chatServer._rosterFile
+    buddyListWidth = vim.eval('g:vimchat_buddylistwidth')
+
     try:
         vim.command("silent vertical sview " + rosterFile)
         vim.command("silent wincmd H")
-        vim.command("silent vertical resize 30")
+        vim.command("silent vertical resize " + buddyListWidth)
     except:
         vim.command("tabe " + rosterFile)
 
@@ -429,6 +451,13 @@ def vimChatLog(user, msg):
 def vimChatSignOn():
     global chatServer
     vim.command('nnoremap <buffer> B :py vimChatShowBuddyList()<CR>')
+
+    vim.command('let s:hasVars = VimChatCheckVars()')
+    hasVars = int(vim.eval('s:hasVars'))
+
+    if hasVars < 1:
+        print "Could not start VimChat!"
+        return 0
 
     if chatServer:
         print "Already connected to VimChat!"
