@@ -83,7 +83,6 @@ from time import strftime
 #Global Variables
 chats = {}
 chatServer = ""
-chatMatches = {}
 #}}}
 
 #Classes
@@ -265,28 +264,6 @@ def getBufByName(name):
     return None
 #}}}
 
-#{{{ addBufMatch
-def addBufMatch(buf, matchId):
-    matchKeys = chatMatches.keys() 
-    if buf in matchKeys:
-        chatMatches[buf].append(matchId)
-    else:
-        chatMatches[buf] = []
-        chatMatches[buf].append(matchId)
-        
-#}}}
-#{{{ vimChatDeleteBufferMatches
-def vimChatDeleteBufferMatches(buf):
-    if buf in chatMatches.keys():
-        for match in chatMatches[buf]:
-            try:
-                vim.command('call matchdelete(' + match + ')')
-            except:
-                pass
-
-        chatMatches[buf] = []
-#}}}
-
 #{{{ vimChatBeginChat
 def vimChatBeginChat():
 
@@ -340,11 +317,6 @@ def vimChatSetupChatBuffer():
     nnoremap <buffer> B :py vimChatShowBuddyList()<CR>
     """
     vim.command(commands)
-
-    vim.command('let b:id = ""')
-    # This command has to be sent by itself.
-    vim.command('au CursorMoved <buffer> py vimChatDeleteBufferMatches("' + \
-        vim.current.buffer.name + '")')
 #}}}
 #{{{ vimChatSendBufferShow
 def vimChatSendBufferShow():
@@ -478,9 +450,6 @@ def vimChatMessageReceived(fromJid, message):
         line = tstamp + '\t' + line
         vim.current.buffer.append(line)
 
-    vim.command("let b:lastMatchId =  matchadd('Error', '\%' . line('$') . 'l')")
-    lastMatchId = vim.eval('b:lastMatchId')
-    addBufMatch(chatFile,lastMatchId)
     vim.command("echo 'Message Received from: " + jid + "'")
     vim.command("normal G")
     vim.command("sbuffer " + str(origBufNum))
