@@ -7,6 +7,16 @@
 "
 " It currently only supports one jabber account at a time
 " 
+" Supported ~/.vimrc Variables:
+"   g:vimchat_jid = jabber id -- required
+"   g:vimchat_password = jabber password -- required
+"
+"   g:vimchat_buddylistwidth = width of buddy list
+"   g:vimchat_logpath = path to store log files
+"   g:vimchat_logchats = (0 or 1) default is 1
+"
+"
+
 
 if exists('g:vimchat_loaded')
     finish
@@ -43,6 +53,12 @@ fu! VimChatCheckVars()
     endif
     if !exists('g:vimchat_buddylistwidth')
         let g:vimchat_buddylistwidth=30
+    endif
+    if !exists('g:vimchat_logpath')
+        let g:vimchat_logpath="~/.vimchat/logs"
+    endif
+    if !exists('g:vimchat_logchats')
+        let g:vimchat_logchats=1
     endif
 
     return 1
@@ -440,13 +456,17 @@ def vimChatMessageReceived(fromJid, message):
 #}}}
 #{{{ vimChatLog
 def vimChatLog(user, msg):
-    logDir = os.path.expanduser('~/.vimchat/logs')
-    if not os.path.exists(logDir):
-        os.makedirs(logDir)
-    day = strftime('%Y-%m-%d')
-    log = open(logDir + '/' + user + '-' + day, 'a')
-    log.write(msg + '\n')
-    log.close()
+    logChats = int(vim.eval('g:vimchat_logchats'))
+    if logChats > 0:
+        logPath = vim.eval('g:vimchat_logpath')
+        logDir = os.path.expanduser(logPath)
+        if not os.path.exists(logDir):
+            os.makedirs(logDir)
+
+        day = strftime('%Y-%m-%d')
+        log = open(logDir + '/' + user + '-' + day, 'a')
+        log.write(msg + '\n')
+        log.close()
 #}}}
 #{{{ vimChatSignOn
 def vimChatSignOn():
