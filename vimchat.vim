@@ -180,7 +180,15 @@ class VimChat(threading.Thread):
         fromJid = msg.getFrom()
         show = msg.getShow()
         status = msg.getStatus()
-        self._presenceCallback(fromJid,show,status)
+        priority = msg.getPriority()
+
+        if not show:
+            if priority:
+                show = 'online'
+            else:
+                show = 'offline'
+
+        self._presenceCallback(fromJid,show,status,priority)
     #}}}
 
     #To Jabber Functions
@@ -408,16 +416,17 @@ def vimChatSendMessage():
 
 #INCOMING
 #{{{ vimChatPresenceUpdate
-def vimChatPresenceUpdate(fromJid, show, status):
+def vimChatPresenceUpdate(fromJid, show, status, priority):
     #Only care if we have the chat window open
     if fromJid in chats.keys():
-        print "PresenceUpdate: " + str(fromJid) + " : " + str(show)
+        #print "PresenceUpdate: " + str(fromJid) + " : " + str(show)
         #get the buffer of the chat
         chatBuf = getBufByName(chats[fromJid])
         tstamp = getTimestamp()
         statusUpdateLine = \
             tstamp + " -- " + str(fromJid) + \
             " is " + str(show) + ": " + str(status)
+
         chatBuf.append(statusUpdateLine)
 
 #}}}
