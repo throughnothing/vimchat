@@ -250,6 +250,31 @@ def vimChatShowBuddyList():
     vim.command("set foldmethod=marker")
     vim.command("nmap <buffer> <silent> <Return> :py vimChatBeginChat()<CR>")
     vim.command("nnoremap <buffer> <silent> q :hide<CR>")
+    vim.command("nnoremap <buffer> <silent> L :py vimChatOpenLog()<CR>")
+#}}}
+#{{{ vimChatGetBuddyListItem
+def vimChatGetBuddyListItem(item):
+    if item == 'jid':
+        vim.command('let b:getLine = getline(".")=~"{\|}"')
+        getLine = vim.eval('b:getLine')
+        vim.command('let b:foldClosed = foldclosed(".")')
+        foldClosed = vim.eval('b:foldClosed')
+
+        if int(foldClosed) == -1:
+            #If the fold is not closed
+            vim.command("normal! ]z")
+            vim.command("normal! [z")
+            vim.command("normal! j")
+        else:
+            #If the fold is closed
+            vim.command("normal! za")
+            vim.command("normal! j")
+
+
+        toJid = vim.current.line
+        toJid = toJid.strip()
+        return toJid
+
 #}}}
 
 #{{{ getTimestamp
@@ -266,25 +291,7 @@ def getBufByName(name):
 
 #{{{ vimChatBeginChat
 def vimChatBeginChat():
-
-    vim.command('let b:getLine = getline(".")=~"{\|}"')
-    getLine = vim.eval('b:getLine')
-    vim.command('let b:foldClosed = foldclosed(".")')
-    foldClosed = vim.eval('b:foldClosed')
-
-    if int(foldClosed) == -1:
-        #If the fold is not closed
-        vim.command("normal! ]z")
-        vim.command("normal! [z")
-        vim.command("normal! j")
-    else:
-        #If the fold is closed
-        vim.command("normal! za")
-        vim.command("normal! j")
-
-
-    toJid = vim.current.line
-    toJid = toJid.strip()
+    toJid = vimChatGetBuddyListItem('jid')
 
     chatKeys = chats.keys()
     chatFile = ''
@@ -315,6 +322,7 @@ def vimChatSetupChatBuffer():
     nnoremap <buffer> i :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> o :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> B :py vimChatShowBuddyList()<CR>
+    nnoremap <buffer> q :silent hide<CR>
     """
     vim.command(commands)
 #}}}
@@ -459,7 +467,7 @@ def vimChatLog(user, msg):
     logChats = int(vim.eval('g:vimchat_logchats'))
     if logChats > 0:
         logPath = vim.eval('g:vimchat_logpath')
-        logDir = os.path.expanduser(logPath)
+        logDir = os.path.expanduser(logPath + '/' + user)
         if not os.path.exists(logDir):
             os.makedirs(logDir)
 
@@ -467,6 +475,18 @@ def vimChatLog(user, msg):
         log = open(logDir + '/' + user + '-' + day, 'a')
         log.write(msg + '\n')
         log.close()
+#}}}
+#{{{ vimChatOpenLog
+def vimChatOpenLog():
+    user = vimChatGetBuddyListItem('jid')
+    logPath = vim.eval('g:vimchat_logpath')
+    logDir = os.path.expanduser(logPath + '/' + user)
+    if not os.path.exists(logDir):
+        print "No Logfile Found"
+        return 0
+    else:
+        vim.command('silent tabe ' + logDir)
+
 #}}}
 #{{{ vimChatSignOn
 def vimChatSignOn():
