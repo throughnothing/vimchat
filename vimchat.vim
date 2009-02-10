@@ -256,7 +256,10 @@ def addBufMatch(buf, matchId):
 def vimChatDeleteBufferMatches(buf):
     if buf in chatMatches.keys():
         for match in chatMatches[buf]:
-            vim.command('call matchdelete(' + match + ')')
+            try:
+                vim.command('call matchdelete(' + match + ')')
+            except:
+                pass
 
         chatMatches[buf] = []
 #}}}
@@ -326,11 +329,9 @@ def vimChatSendBufferShow():
     origBuf = vim.current.buffer.name
     chats[toJid]= origBuf
 
-
     #Create sending buffer
     sendBuffer = "sendTo:" + toJid
     vim.command("silent bo new " + sendBuffer)
-
     vim.command("silent let b:buddyId = '" + toJid +  "'")
 
     commands = """\
@@ -346,6 +347,7 @@ def vimChatSendBufferShow():
         nnoremap <buffer> q :hide<CR>
     """
     vim.command(commands)
+    vim.command('normal G')
     vim.command('normal o')
     vim.command('normal zt')
     vim.command('star')
@@ -361,22 +363,23 @@ def vimChatSendMessage():
         print "No valid chat found!"
         return 0
 
+    tstamp = getTimestamp()
+    chatBuf = getBufByName(chats[toJid])
 
     r = vim.current.range
     body = ""
     for line in r:
         line = line.rstrip('\n')
+        if body == "":
+            chatBuf.append(tstamp + " Me: " + line)
+        else:
+            chatBuf.append(tstamp + "\t" + line)
+
         body = body + line + '\n'
 
     global chatServer
     chatServer.jabberSendMessage(toJid, body)
 
-    tstamp = getTimestamp()
-    chatBuf = getBufByName(chats[toJid])
-    if chatBuf:
-        chatBuf.append(tstamp + " Me: " + body)
-    else:
-        print "Could not find where to append your message!"
 
     vim.command('hide')
 
