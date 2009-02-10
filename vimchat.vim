@@ -444,6 +444,7 @@ def vimChatMessageReceived(fromJid, message):
 
     pynotify.init('vimchat')
     n = pynotify.Notification(user + ' says:', message, 'dialog-warning')
+    n.set_timeout(5000)
     n.show()
 
     for line in lines:
