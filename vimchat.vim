@@ -505,7 +505,6 @@ def vimChatSignOn():
     chatServer = VimChat(jid, jabberClient, roster, callbacks)
     chatServer.start()
 
-    vim.command("normal <Esc>")
     print "Connected with VimChat (" + jid + ")"
 
     vimChatShowBuddyList()
