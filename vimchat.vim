@@ -433,6 +433,7 @@ def vimChatMessageReceived(fromJid, message):
     vim.command("let b:lastMatchId =  matchadd('Error', '\%' . line('$') . 'l')")
     lastMatchId = vim.eval('b:lastMatchId')
     addBufMatch(chatFile,lastMatchId)
+    vim.command("normal G")
     vim.command("echo 'Message Received from: " + jid + "'")
     vim.command("sbuffer " + str(origBufNum))
 #}}}
