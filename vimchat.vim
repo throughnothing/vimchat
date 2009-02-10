@@ -302,6 +302,8 @@ def vimChatBeginChatFromBuddyList():
     toJid = vimChatGetBuddyListItem('jid')
     #Just in case
     toJid = toJid.split('/')[0]
+
+    #Hid Buddy list
     vim.command("hide")
     vimChatBeginChat(toJid)
 #}}}
@@ -316,10 +318,11 @@ def vimChatBeginChat(toJid):
         chatFile = toJid
         chats[toJid] = chatFile
 
-    try:
-        vim.command("silent sbuffer " + chatFile)
-    except:
-        vim.command("silent split " + chatFile)
+    bExists = int(vim.eval('bufexists("' + chatFile + '")'))
+    if bExists: 
+        vim.command("sbuffer " + chatFile)
+    else:
+        vim.command("split " + chatFile)
         #Only do this stuff if its a new buffer
         vim.command("let b:buddyId = '" + toJid + "'")
         vimChatSetupChatBuffer();
