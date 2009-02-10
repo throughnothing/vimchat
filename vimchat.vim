@@ -362,6 +362,7 @@ def vimChatSendMessage():
 
     tstamp = getTimestamp()
     chatBuf = getBufByName(chats[toJid])
+    jid = toJid.split('/')[0]
 
     r = vim.current.range
     body = ""
@@ -369,10 +370,10 @@ def vimChatSendMessage():
         line = line.rstrip('\n')
         if body == "":
             chatBuf.append(tstamp + " Me: " + line)
-            vimChatLog(toJid, tstamp + " Me: " + line)
+            vimChatLog(jid, tstamp + " Me: " + line)
         else:
             chatBuf.append(tstamp + "\t" + line)
-            vimChatLog(toJid, tstamp + "\t" + line)
+            vimChatLog(jid, tstamp + "\t" + line)
 
         body = body + line + '\n'
 
