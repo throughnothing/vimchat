@@ -27,6 +27,16 @@ set switchbuf=usetab
 
 "}}}
 
+
+"Vim Functions
+"{{{ VimChatFoldText
+function! VimChatFoldText()
+    let line=substitute(getline(v:foldstart),'^[ \t#]*\([^=]*\).*', '\1', '')
+    let line=strpart('                                     ', 0, (v:foldlevel - 1)).substitute(line,'\s*{\+\s*', '', '')
+    return line
+endfunction
+"}}}
+
 """"""""""Python Stuff""""""""""""""
 python <<EOF
 
@@ -160,7 +170,6 @@ class VimChat(threading.Thread):
     def jabberSendMessage(self, tojid, msg):
         msg = msg.strip()
         m = xmpp.protocol.Message(to=tojid,body=msg,typ='chat')
-        #print 'Message: ' + msg
         self.jabber.send(m)
     #}}}
     #{{{ jabberPresenceUpdate
@@ -209,11 +218,14 @@ def vimChatShowBuddyList():
     try:
         vim.command("silent vertical sview " + rosterFile)
         vim.command("silent wincmd H")
+        vim.command("silent vertical resize 30")
     except:
         vim.command("tabe " + rosterFile)
 
+    vim.command("setlocal foldtext=VimChatFoldText()")
     vim.command("set nowrap")
     vim.command("nnoremap <buffer> <silent> <Return> :py vimChatBeginChat()<CR>")
+    vim.command("nnoremap <buffer> <silent> q :hide<CR>")
 
 #}}}
 
@@ -262,7 +274,6 @@ def vimChatBeginChat():
         vim.command("normal! [z")
         vim.command("normal! j")
     else:
-        print "Fold closed: " + foldClosed
         #If the fold is closed
         vim.command("normal! za")
         vim.command("normal! j")
@@ -329,8 +340,8 @@ def vimChatSendBufferShow():
         setlocal nosi
         setlocal buftype=nowrite
         setlocal wrap
-        nnoremap <buffer> <CR> :py vimChatSendMessage()<CR>
-        vnoremap <buffer> <CR> :py vimChatSendMessage()<CR>
+        noremap <buffer> <CR> :py vimChatSendMessage()<CR>
+        inoremap <buffer> <CR> <Esc>:py vimChatSendMessage()<CR>
         nnoremap <buffer> q :hide<CR>
     """
     vim.command(commands)
