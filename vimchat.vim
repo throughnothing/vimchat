@@ -10,12 +10,11 @@
 
 "Vim Commands
 "{{{ Vim Commands
-com! VimChatSignOff py vimChatSignOff()
+com! VimChat py vimChatSignOn()
 com! VimChatSignOn py vimChatSignOn()
+com! VimChatSignOff py vimChatSignOff()
 com! VimChatShowBuddyList py vimChatShowBuddyList()
 
-"Show the buddy list
-map <Leader>vcb :py vimChatShowBuddyList()<CR>
 "Connect to jabber
 map <Leader>vcc :silent py vimChatSignOn()<CR>
 "Disconnect from jabber
@@ -62,36 +61,17 @@ class VimChat(threading.Thread):
     _roster = {}
 
     #{{{ __init__
-    def __init__(self, jid, password, callbacks):
+    def __init__(self, jid, jabberClient, roster, callbacks):
         self._jid = jid
-        self._password = password
         self._recievedMessage = callbacks
+        self._roster = roster
         threading.Thread.__init__ ( self )
+        self.jabber = jabberClient
     #}}}
     #{{{ run
     def run(self):
-        jid=xmpp.protocol.JID(self._jid)
-        self.jabber =xmpp.Client(jid.getDomain(),debug=[])
-
-        con=self.jabber.connect()
-        if not con:
-            print 'could not connect!\n'
-            return 0
-
-        auth=self.jabber.auth(
-            jid.getNode(),
-            self._password,
-            resource=jid.getResource())
-
-        if not auth:
-            print 'could not authenticate!\n'
-            return 0
-
         self.jabber.RegisterHandler('message',self.jabberMessageReceive)
         self.jabber.RegisterHandler('presence',self.jabberPresenceReceive)
-        self.jabber.sendInitPresence(requestRoster=1)
-
-        self.updateRoster()
 
         #Socket stuff
         RECV_BUF = 4096
@@ -141,10 +121,10 @@ class VimChat(threading.Thread):
                 groups = u''
             
             try:
-                if priority:
-                    buddy = u"{{{ %s -- %s\n\t%s \n\tGroups: %s\n\t%s:\n%s\n}}}\n" % \
-                        (name, show, item, groups, show, status)
-                    rF.write(buddy)
+                buddy =\
+                    u"{{{ %s -- %s\n\t%s \n\tGroups: %s\n\t%s:\n%s\n}}}\n" %\
+                    (name, show, item, groups, show, status)
+                rF.write(buddy)
             except:
                 pass
 
@@ -195,11 +175,6 @@ class VimChat(threading.Thread):
             return self._roster.getItems()
         else:
             return None
-    #}}}
-    #{{{ updateRoster
-    def updateRoster(self):
-        self._roster = self.jabber.getRoster()
-        return self._roster
     #}}}
 #}}}
 
@@ -314,6 +289,7 @@ def vimChatSetupChatBuffer():
     setlocal wrap
     nnoremap <buffer> i :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> o :py vimChatSendBufferShow()<CR>
+    nnoremap <buffer> B :py vimChatShowBuddyList()<CR>
     """
     vim.command(commands)
 
@@ -440,6 +416,7 @@ def vimChatMessageReceived(fromJid, message):
 #{{{ vimChatSignOn
 def vimChatSignOn():
     global chatServer
+    vim.command('nnoremap <buffer> B :py vimChatShowBuddyList()<CR>')
 
     if chatServer:
         print "Already connected to VimChat!"
@@ -450,8 +427,26 @@ def vimChatSignOn():
     jid = vim.eval('g:vimchat_jid')
     password = vim.eval('g:vimchat_password')
 
-    chatServer = VimChat(jid, password,vimChatMessageReceived)
+    JID=xmpp.protocol.JID(jid)
+    jabberClient = xmpp.Client(JID.getDomain(),debug=[])
+
+    con = jabberClient.connect()
+    if not con:
+        print 'could not connect!\n'
+        return 0
+
+    auth=jabberClient.auth(JID.getNode(), password, resource=JID.getResource())
+
+    if not auth:
+        print 'could not authenticate!\n'
+        return 0
+
+    jabberClient.sendInitPresence(requestRoster=1)
+    roster = jabberClient.getRoster()
+    chatServer = VimChat(jid, jabberClient, roster, vimChatMessageReceived)
     chatServer.start()
+
+    vimChatShowBuddyList()
     
 #}}}
 #{{{ vimChatSignOff
