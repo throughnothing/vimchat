@@ -85,7 +85,7 @@ chats = {}
 chatServer = ""
 #}}}
 
-#Classes
+#CLASSES
 #{{{ class VimChat
 class VimChat(threading.Thread):
     #Vim Executable to use
@@ -113,7 +113,6 @@ class VimChat(threading.Thread):
         socketlist = [self.xmppS]
         online = 1
 
-        print "Connected with VimChat (jid = " + self._jid + ")"
 
         while online:
             (i , o, e) = select.select(socketlist,[],[],1)
@@ -223,7 +222,20 @@ class VimChat(threading.Thread):
     #}}}
 #}}}
 
-#General Functions
+#HELPER FUNCTIONS
+#{{{ getTimestamp
+def getTimestamp():
+    return strftime("[%H:%M]")
+#}}}
+#{{{ getBufByName
+def getBufByName(name):
+    for buf in vim.buffers:
+        if buf.name == name:
+            return buf
+    return None
+#}}}
+
+#BUDDY LIST
 #{{{ VimChatShowBuddyList
 def vimChatShowBuddyList():
     global chatServer
@@ -248,7 +260,8 @@ def vimChatShowBuddyList():
     vim.command("setlocal foldtext=VimChatFoldText()")
     vim.command("set nowrap")
     vim.command("set foldmethod=marker")
-    vim.command("nmap <buffer> <silent> <Return> :py vimChatBeginChat()<CR>")
+    vim.command(
+        "nmap <buffer> <silent> <CR> :py vimChatBeginChatFromBuddyList()<CR>")
     vim.command("nnoremap <buffer> <silent> q :hide<CR>")
     vim.command("nnoremap <buffer> <silent> L :py vimChatOpenLog()<CR>")
 #}}}
@@ -276,37 +289,32 @@ def vimChatGetBuddyListItem(item):
         return toJid
 
 #}}}
-
-#{{{ getTimestamp
-def getTimestamp():
-    return strftime("[%H:%M]")
-#}}}
-#{{{ getBufByName
-def getBufByName(name):
-    for buf in vim.buffers:
-        if buf.name == name:
-            return buf
-    return None
-#}}}
-
-#{{{ vimChatBeginChat
-def vimChatBeginChat():
+#{{{ vimChatBeginChatFromBuddyList
+def vimChatBeginChatFromBuddyList():
     toJid = vimChatGetBuddyListItem('jid')
+    #Just in case
+    toJid = toJid.split('/')[0]
+    vim.command("hide")
+    vimChatBeginChat(toJid)
+#}}}
 
-    chatKeys = chats.keys()
-    chatFile = ''
-    if toJid in chatKeys:
+#CHAT BUFFERS
+#{{{ vimChatBeginChat
+def vimChatBeginChat(toJid):
+    #Set the ChatFile
+    if toJid in chats.keys():
         chatFile = chats[toJid]
     else:
         chatFile = toJid
         chats[toJid] = chatFile
 
-    vim.command("hide")
-    vim.command("split " + chatFile)
-
-    vim.command("let b:buddyId = '" + toJid + "'")
-
-    vimChatSetupChatBuffer();
+    try:
+        vim.command("silent sbuffer " + chatFile)
+    except:
+        vim.command("silent split " + chatFile)
+        #Only do this stuff if its a new buffer
+        vim.command("let b:buddyId = '" + toJid + "'")
+        vimChatSetupChatBuffer();
 
 #}}}
 #{{{ vimChatSetupChatBuffer
@@ -357,6 +365,56 @@ def vimChatSendBufferShow():
     vim.command('star')
 
 #}}}
+#{{{ vimChatAppendMessage
+def vimChatAppendMessage(bufName, message):
+    lines = message.split("\n")
+    buf = getBufByName(bufName)
+
+    #Get the first line
+    line = lines.pop(0);
+    buf.append(line)
+
+    for line in lines:
+        line = tstamp + '\t' + line
+        buf.append(line)
+#}}}
+
+#NOTIFY
+#{{{ vimChatNotify
+def vimChatNotify(title, msg, type):
+    pynotify.init('vimchat')
+    n = pynotify.Notification(title, msg, type)
+    n.set_timeout(5000)
+    n.show()
+#}}}
+
+#LOGGING
+#{{{ vimChatLog
+def vimChatLog(user, msg):
+    logChats = int(vim.eval('g:vimchat_logchats'))
+    if logChats > 0:
+        logPath = vim.eval('g:vimchat_logpath')
+        logDir = os.path.expanduser(logPath + '/' + user)
+        if not os.path.exists(logDir):
+            os.makedirs(logDir)
+
+        day = strftime('%Y-%m-%d')
+        log = open(logDir + '/' + user + '-' + day, 'a')
+        log.write(msg + '\n')
+        log.close()
+#}}}
+#{{{ vimChatOpenLog
+def vimChatOpenLog():
+    user = vimChatGetBuddyListItem('jid')
+    logPath = vim.eval('g:vimchat_logpath')
+    logDir = os.path.expanduser(logPath + '/' + user)
+    if not os.path.exists(logDir):
+        print "No Logfile Found"
+        return 0
+    else:
+        vim.command('silent tabe ' + logDir)
+
+#}}}
 
 #OUTGOING
 #{{{ vimChatSendMessage
@@ -393,101 +451,6 @@ def vimChatSendMessage():
     vim.command('sbuffer ' + str(chatBuf.number))
     vim.command('normal G')
 #}}}
-
-#INCOMING
-#{{{ vimChatPresenceUpdate
-def vimChatPresenceUpdate(fromJid, show, status, priority):
-    #Only care if we have the chat window open
-    if fromJid in chats.keys():
-        #print "PresenceUpdate: " + str(fromJid) + " : " + str(show)
-        #get the buffer of the chat
-        chatBuf = getBufByName(chats[fromJid])
-        tstamp = getTimestamp()
-        statusUpdateLine = \
-            tstamp + " -- " + str(fromJid) + \
-            " is " + str(show) + ": " + str(status)
-
-        chatBuf.append(statusUpdateLine)
-
-#}}}
-#{{{ vimChatMessageReceived
-def vimChatMessageReceived(fromJid, message):
-    origBufNum = vim.current.buffer.number
-
-    #get timestamp
-    tstamp = getTimestamp()
-
-    user, domain = fromJid.split('@')
-    jid = fromJid
-    resource = ''
-    try:
-        jid, resource = jid.split('/')
-    except:
-        resource = ""
-
-    chatKeys = chats.keys()
-    chatFile = ''
-    if jid in chatKeys:
-        chatFile = chats[jid]
-    else:
-        chatFile = jid
-        chats[jid] = chatFile
-
-    vim.command("bad " + chatFile)
-    try:
-        vim.command("sbuffer " + chatFile)
-    except:
-        vim.command("new " + chatFile)
-
-    vim.command("let b:buddyId = '" + fromJid + "'")
-
-    vimChatSetupChatBuffer();
-
-    lines = message.split("\n")
-    line = lines.pop(0);
-    toAppend = tstamp + " " + user + '/' + resource + ": " + line
-    vimChatLog(jid, toAppend)
-    vim.current.buffer.append(toAppend)
-
-    pynotify.init('vimchat')
-    n = pynotify.Notification(user + ' says:', message, 'dialog-warning')
-    n.set_timeout(5000)
-    n.show()
-
-    for line in lines:
-        line = tstamp + '\t' + line
-        vim.current.buffer.append(line)
-
-    vim.command("echo 'Message Received from: " + jid + "'")
-    vim.command("normal G")
-    vim.command("sbuffer " + str(origBufNum))
-#}}}
-#{{{ vimChatLog
-def vimChatLog(user, msg):
-    logChats = int(vim.eval('g:vimchat_logchats'))
-    if logChats > 0:
-        logPath = vim.eval('g:vimchat_logpath')
-        logDir = os.path.expanduser(logPath + '/' + user)
-        if not os.path.exists(logDir):
-            os.makedirs(logDir)
-
-        day = strftime('%Y-%m-%d')
-        log = open(logDir + '/' + user + '-' + day, 'a')
-        log.write(msg + '\n')
-        log.close()
-#}}}
-#{{{ vimChatOpenLog
-def vimChatOpenLog():
-    user = vimChatGetBuddyListItem('jid')
-    logPath = vim.eval('g:vimchat_logpath')
-    logDir = os.path.expanduser(logPath + '/' + user)
-    if not os.path.exists(logDir):
-        print "No Logfile Found"
-        return 0
-    else:
-        vim.command('silent tabe ' + logDir)
-
-#}}}
 #{{{ vimChatSignOn
 def vimChatSignOn():
     global chatServer
@@ -504,7 +467,7 @@ def vimChatSignOn():
         print "Already connected to VimChat!"
         return 0
     else:
-        print "Connecting..."
+        print "Connecting.."
 
     jid = vim.eval('g:vimchat_jid')
     password = vim.eval('g:vimchat_password')
@@ -532,6 +495,9 @@ def vimChatSignOn():
     chatServer = VimChat(jid, jabberClient, roster, callbacks)
     chatServer.start()
 
+    vim.command("normal <Esc>")
+    print "Connected with VimChat (" + jid + ")"
+
     vimChatShowBuddyList()
     
 #}}}
@@ -548,6 +514,60 @@ def vimChatSignOff():
     else:
         print "Not Connected!"
 #}}}
+
+#INCOMING
+#{{{ vimChatPresenceUpdate
+def vimChatPresenceUpdate(fromJid, show, status, priority):
+    #Only care if we have the chat window open
+    if fromJid in chats.keys():
+        #print "PresenceUpdate: " + str(fromJid) + " : " + str(show)
+        #get the buffer of the chat
+        chatBuf = getBufByName(chats[fromJid])
+        tstamp = getTimestamp()
+        statusUpdateLine = \
+            tstamp + " -- " + str(fromJid) + \
+            " is " + str(show) + ": " + str(status)
+
+        chatBuf.append(statusUpdateLine)
+
+#}}}
+#{{{ vimChatMessageReceived
+def vimChatMessageReceived(fromJid, message):
+    #Store the buffer we were in
+    origBufNum = vim.current.buffer.number
+
+    jidParts = fromJid.split('/')
+    jid = jidParts[0]
+    user = jid.split('@')[0]
+
+    #Get A Resource if exists
+    if len(jidParts) > 1:
+        resource = jidParts[1]
+    else:
+        resource = ''
+
+    vimChatBeginChat(jid)
+
+    #get timestamp
+    tstamp = getTimestamp()
+    fullMessage = tstamp + " " + user + '/' + resource + ": " + message
+
+    #Append Message to File
+    vimChatAppendMessage(vim.current.buffer.name, fullMessage)
+
+    #Log the message
+    vimChatLog(jid, fullMessage)
+
+    #LibNotify
+    vimChatNotify(user + ' says:', message, 'dialog-warning')
+
+    print "Message Received from: " + jid
+    vim.command("normal G")
+
+    #Switch Back to the buffer we were in
+    #vim.command("sbuffer " + str(origBufNum))
+#}}}
+
 
 EOF
 " vim:et:fdm=marker:sts=4:sw=4:ts=4
