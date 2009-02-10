@@ -77,7 +77,7 @@ python <<EOF
 
 #Imports/Global Vars
 #{{{ imports/global vars
-import os, os.path, select, threading, vim, xmpp
+import os, os.path, pynotify, select, threading, vim, xmpp
 from datetime import time
 from time import strftime
 
@@ -436,13 +436,17 @@ def vimChatMessageReceived(fromJid, message):
 
     vimChatSetupChatBuffer();
 
-    messageLines = message.split("\n")
-    toAppend = tstamp + " " + user + '/' + resource + ": " + messageLines[0]
-    messageLines.pop(0)
-    vim.current.buffer.append(toAppend)
+    lines = message.split("\n")
+    line = lines.pop(0);
+    toAppend = tstamp + " " + user + '/' + resource + ": " + line
     vimChatLog(jid, toAppend)
+    vim.current.buffer.append(toAppend)
 
-    for line in messageLines:
+    pynotify.init('vimchat')
+    n = pynotify.Notification(user + ' says:', message, 'dialog-warning')
+    n.show()
+
+    for line in lines:
         line = tstamp + '\t' + line
         vim.current.buffer.append(line)
 
