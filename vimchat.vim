@@ -8,37 +8,22 @@
 " It currently only supports one jabber account at a time
 " 
 
-"Vim Commands/Functions
-"{{{ Vim Commands/Functions
+"Vim Commands
+"{{{ Vim Commands
 com! VimChatSignOff py vimChatSignOff()
 com! VimChatSignOn py vimChatSignOn()
-com! VimChatShowBuddyList :call VimChatShowBuddyList()
+com! VimChatShowBuddyList py vimChatShowBuddyList()
 
 "Show the buddy list
-map <Leader>vcb :call VimChatShowBuddyList()<CR>
+map <Leader>vcb :py vimChatShowBuddyList()<CR>
 "Connect to jabber
 map <Leader>vcc :silent py vimChatSignOn()<CR>
 "Disconnect from jabber
 map <Leader>vcd :silent py vimChatSignOff()<CR>
 
 set switchbuf=usetab
-let g:rosterFile = '/tmp/vimChatRoster'
 
 "Vim Functions
-"{{{ VimChatShowBuddyList
-function! VimChatShowBuddyList()
-    try
-        exe "silent vertical sview " . g:rosterFile
-        exe "silent wincmd H"
-    catch
-        exe "tabe " . g:rosterFile
-    endtry
-
-    set nowrap
-
-    nnoremap <buffer> <silent> <Return> :py vimChatBeginChat()<CR>
-endfunction
-"}}}
 
 "}}}
 
@@ -96,6 +81,8 @@ class VimChat(threading.Thread):
         self.jabber.RegisterHandler('presence',self.jabberPresenceReceive)
         self.jabber.sendInitPresence(requestRoster=1)
 
+        self.updateRoster()
+
         #Socket stuff
         RECV_BUF = 4096
         self.xmppS = self.jabber.Connection._sock
@@ -114,32 +101,43 @@ class VimChat(threading.Thread):
     #}}}
 
     #Roster Stuff
-    #{{{ _writeRoster
-    def _writeRoster(self):
+    #{{{ writeRoster
+    def writeRoster(self):
         #write roster to file
-        rF = open(self._rosterFile,'w')
-        for item in self._roster.keys():
-            name = str(item)
-            priority = self._roster[item]['priority']
-            show = self._roster[item]['show']
-            if name and priority and show:
-                try:
-                    #TODO: figure out unicode stuff here
-                    rF.write(name + "\n")
-                except:
-                    rF.write(name + "\n")
+        rosterItems = self._roster.getItems()
+        rosterItems.sort()
+        import codecs
+        rF = codecs.open(self._rosterFile,'w','utf-16')
 
-            else:
-                rF.write(name + "\n")
-                #rF.write("{{{ " + item + "\n" + item + "\n}}}\n")
+        for item in rosterItems:
+            name = self._roster.getName(item)
+            status = self._roster.getStatus(item)
+            show = self._roster.getShow(item)
+            priority = self._roster.getPriority(item)
+            groups = self._roster.getGroups(item)
 
-        rF.close()
-    #}}}
-    #{{{ _clearRoster
-    def _clearRoster(self,string):
-        #write roster to file
-        rF = open(self._rosterFile,'w')
-        rF.write(string)
+            if not name:
+                name = item
+            if not status:
+                status = u''
+            if not show:
+                if priority:
+                    show = u'online'
+                else:
+                    show = u'offline'
+            if not priority:
+                priority = u''
+            if not groups:
+                groups = u''
+            
+            try:
+                if priority:
+                    buddy = u"{{{ %s -- %s\n\t%s \n\tGroups: %s\n\t%s:\n%s\n}}}\n" % \
+                        (name, show, item, groups, show, status)
+                    rF.write(buddy)
+            except:
+                pass
+
         rF.close()
     #}}}
 
@@ -154,21 +152,7 @@ class VimChat(threading.Thread):
     #}}}
     #{{{ jabberPresenceReceive
     def jabberPresenceReceive(self, conn, msg):
-        jid = str(msg.getFrom())
-        try:
-            jid, resource = jid.split('/')
-        except:
-            resource = ""
-
-        newPriority = msg.getPriority()
-
-        self._roster[jid] = {
-            'priority': msg.getPriority,
-            'show':msg.getShow(),
-            'status':msg.getStatus
-        }
-
-        #self._writeRoster()
+        pass
     #}}}
 
     #To Jabber Functions
@@ -195,13 +179,44 @@ class VimChat(threading.Thread):
             pass
     #}}}
 
-    #{{{ getRoster
-    def getRoster():
+    #Roster Functions
+    #{{{ getRosterItems
+    def getRosterItems(self):
+        if self._roster:
+            return self._roster.getItems()
+        else:
+            return None
+    #}}}
+    #{{{ updateRoster
+    def updateRoster(self):
+        self._roster = self.jabber.getRoster()
         return self._roster
     #}}}
 #}}}
 
 #General Functions
+#{{{ VimChatShowBuddyList
+def vimChatShowBuddyList():
+    global chatServer
+    if not chatServer:
+        print "Not Connected!  Please connect first."
+        return 0
+
+    #Write buddy list to file
+    chatServer.writeRoster()
+
+    rosterFile = chatServer._rosterFile
+    try:
+        vim.command("silent vertical sview " + rosterFile)
+        vim.command("silent wincmd H")
+    except:
+        vim.command("tabe " + rosterFile)
+
+    vim.command("set nowrap")
+    vim.command("nnoremap <buffer> <silent> <Return> :py vimChatBeginChat()<CR>")
+
+#}}}
+
 #{{{ getTimestamp
 def getTimestamp():
     return strftime("[%H:%M]")
@@ -236,26 +251,35 @@ def vimChatDeleteBufferMatches(buf):
 #{{{ vimChatBeginChat
 def vimChatBeginChat():
 
+    vim.command('let b:getLine = getline(".")=~"{\|}"')
+    getLine = vim.eval('b:getLine')
+    vim.command('let b:foldClosed = foldclosed(".")')
+    foldClosed = vim.eval('b:foldClosed')
+
+    if int(foldClosed) == -1:
+        #If the fold is not closed
+        vim.command("normal! ]z")
+        vim.command("normal! [z")
+        vim.command("normal! j")
+    else:
+        print "Fold closed: " + foldClosed
+        #If the fold is closed
+        vim.command("normal! za")
+        vim.command("normal! j")
+
+
     toJid = vim.current.line
     toJid = toJid.strip()
-
-
-    user, domain = toJid.split('@')
-
-    jid = toJid
-    resource = ''
-    if jid.find('/') >= 0:
-        jid, resource = jid.split('/')
 
     chatKeys = chats.keys()
     chatFile = ''
     if toJid in chatKeys:
         chatFile = chats[toJid]
     else:
-        chatFile = jid
+        chatFile = toJid
         chats[toJid] = chatFile
 
-    vim.command("q!")
+    vim.command("hide")
     vim.command("split " + chatFile)
 
     vim.command("let b:buddyId = '" + toJid + "'")
