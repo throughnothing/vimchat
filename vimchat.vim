@@ -74,7 +74,6 @@ endfunction
 
 """"""""""Python Stuff""""""""""""""
 python <<EOF
-
 #Imports/Global Vars
 #{{{ imports/global vars
 import os, os.path, pynotify, select, threading, vim, xmpp
@@ -98,7 +97,8 @@ class VimChat(threading.Thread):
     #{{{ __init__
     def __init__(self, jid, jabberClient, roster, callbacks):
         self._jid = jid
-        self._recievedMessage = callbacks
+        self._recievedMessage = callbacks['message']
+        self._presenceCallback = callbacks['presence']
         self._roster = roster
         threading.Thread.__init__ ( self )
         self.jabber = jabberClient
@@ -177,7 +177,10 @@ class VimChat(threading.Thread):
     #}}}
     #{{{ jabberPresenceReceive
     def jabberPresenceReceive(self, conn, msg):
-        pass
+        fromJid = msg.getFrom()
+        show = msg.getShow()
+        status = msg.getStatus()
+        self._presenceCallback(fromJid,show,status)
     #}}}
 
     #To Jabber Functions
@@ -231,6 +234,7 @@ def vimChatShowBuddyList():
         vim.command("silent vertical sview " + rosterFile)
         vim.command("silent wincmd H")
         vim.command("silent vertical resize " + buddyListWidth)
+        vim.command("silent e!")
     except:
         vim.command("tabe " + rosterFile)
 
@@ -403,6 +407,20 @@ def vimChatSendMessage():
 #}}}
 
 #INCOMING
+#{{{ vimChatPresenceUpdate
+def vimChatPresenceUpdate(fromJid, show, status):
+    #Only care if we have the chat window open
+    if fromJid in chats.keys():
+        print "PresenceUpdate: " + str(fromJid) + " : " + str(show)
+        #get the buffer of the chat
+        chatBuf = getBufByName(chats[fromJid])
+        tstamp = getTimestamp()
+        statusUpdateLine = \
+            tstamp + " -- " + str(fromJid) + \
+            " is " + str(show) + ": " + str(status)
+        chatBuf.append(statusUpdateLine)
+
+#}}}
 #{{{ vimChatMessageReceived
 def vimChatMessageReceived(fromJid, message):
     origBufNum = vim.current.buffer.number
@@ -454,8 +472,8 @@ def vimChatMessageReceived(fromJid, message):
     vim.command("let b:lastMatchId =  matchadd('Error', '\%' . line('$') . 'l')")
     lastMatchId = vim.eval('b:lastMatchId')
     addBufMatch(chatFile,lastMatchId)
-    vim.command("normal G")
     vim.command("echo 'Message Received from: " + jid + "'")
+    vim.command("normal G")
     vim.command("sbuffer " + str(origBufNum))
 #}}}
 #{{{ vimChatLog
@@ -509,7 +527,11 @@ def vimChatSignOn():
 
     jabberClient.sendInitPresence(requestRoster=1)
     roster = jabberClient.getRoster()
-    chatServer = VimChat(jid, jabberClient, roster, vimChatMessageReceived)
+    callbacks = {
+        'message':vimChatMessageReceived,
+        'presence':vimChatPresenceUpdate}
+
+    chatServer = VimChat(jid, jabberClient, roster, callbacks)
     chatServer.start()
 
     vimChatShowBuddyList()
