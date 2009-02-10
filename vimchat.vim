@@ -331,6 +331,7 @@ def vimChatSendBufferShow():
         setlocal wrap
         nnoremap <buffer> <CR> :py vimChatSendMessage()<CR>
         vnoremap <buffer> <CR> :py vimChatSendMessage()<CR>
+        nnoremap <buffer> q :hide<CR>
     """
     vim.command(commands)
     vim.command('normal o')
@@ -355,11 +356,8 @@ def vimChatSendMessage():
         line = line.rstrip('\n')
         body = body + line + '\n'
 
-    if body:
-        global chatServer
-        chatServer.jabberSendMessage(toJid, body)
-    else:
-        print "Nothing to send!"
+    global chatServer
+    chatServer.jabberSendMessage(toJid, body)
 
     tstamp = getTimestamp()
     chatBuf = getBufByName(chats[toJid])
