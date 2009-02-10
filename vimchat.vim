@@ -65,8 +65,8 @@ class VimChat(threading.Thread):
 
         con=self.jabber.connect()
         if not con:
-            sys.stderr.write('could not connect!\n')
-            sys.exit(1)
+            print 'could not connect!\n'
+            return 0
 
         auth=self.jabber.auth(
             jid.getNode(),
@@ -74,8 +74,8 @@ class VimChat(threading.Thread):
             resource=jid.getResource())
 
         if not auth:
-            sys.stderr.write('could not authenticate!\n')
-            sys.exit(1)
+            print 'could not authenticate!\n'
+            return 0
 
         self.jabber.RegisterHandler('message',self.jabberMessageReceive)
         self.jabber.RegisterHandler('presence',self.jabberPresenceReceive)
