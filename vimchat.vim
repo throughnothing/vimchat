@@ -237,9 +237,8 @@ def vimChatShowBuddyList():
     vim.command("setlocal foldtext=VimChatFoldText()")
     vim.command("set nowrap")
     vim.command("set foldmethod=marker")
-    vim.command("nnoremap <buffer> <silent> <Return> :py vimChatBeginChat()<CR>")
+    vim.command("nmap <buffer> <silent> <Return> :py vimChatBeginChat()<CR>")
     vim.command("nnoremap <buffer> <silent> q :hide<CR>")
-
 #}}}
 
 #{{{ getTimestamp
