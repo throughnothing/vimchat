@@ -41,8 +41,7 @@ python <<EOF
 
 #Imports/Global Vars
 #{{{ imports/global vars
-import vim
-import vim,xmpp,select,threading
+import os, os.path, select, threading, vim, xmpp
 from datetime import time
 from time import strftime
 
@@ -348,8 +347,10 @@ def vimChatSendMessage():
         line = line.rstrip('\n')
         if body == "":
             chatBuf.append(tstamp + " Me: " + line)
+            vimChatLog(toJid, tstamp + " Me: " + line)
         else:
             chatBuf.append(tstamp + "\t" + line)
+            vimChatLog(toJid, tstamp + "\t" + line)
 
         body = body + line + '\n'
 
@@ -401,6 +402,7 @@ def vimChatMessageReceived(fromJid, message):
     toAppend = tstamp + " " + user + '/' + resource + ": " + messageLines[0]
     messageLines.pop(0)
     vim.current.buffer.append(toAppend)
+    vimChatLog(jid, toAppend)
 
     for line in messageLines:
         line = tstamp + '\t' + line
@@ -412,6 +414,16 @@ def vimChatMessageReceived(fromJid, message):
     vim.command("normal G")
     vim.command("echo 'Message Received from: " + jid + "'")
     vim.command("sbuffer " + str(origBufNum))
+#}}}
+#{{{ vimChatLog
+def vimChatLog(user, msg):
+    logDir = os.path.expanduser('~/.vimchat/logs')
+    if not os.path.exists(logDir):
+        os.makedirs(logDir)
+    day = strftime('%Y-%m-%d')
+    log = open(logDir + '/' + user + '-' + day, 'a')
+    log.write(msg + '\n')
+    log.close()
 #}}}
 #{{{ vimChatSignOn
 def vimChatSignOn():
