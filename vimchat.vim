@@ -396,8 +396,6 @@ def vimChatNotify(title, msg, type):
         n = pynotify.Notification(title, msg, type)
         n.set_timeout(5000)
         n.show()
-    except:
-        pass
 #}}}
 
 #LOGGING
