@@ -76,9 +76,17 @@ endfunction
 python <<EOF
 #Imports/Global Vars
 #{{{ imports/global vars
-import os, os.path, pynotify, select, threading, vim, xmpp
+import os, os.path, select, threading, vim, xmpp
 from datetime import time
 from time import strftime
+
+try:
+    import pynotify
+    pynotify_enabled = True
+except:
+    print "pynotify missing...no notifications will occur!"
+    pynotify_enabled = False
+
 
 #Global Variables
 chats = {}
@@ -382,10 +390,14 @@ def vimChatAppendMessage(bufName, message):
 #NOTIFY
 #{{{ vimChatNotify
 def vimChatNotify(title, msg, type):
-    pynotify.init('vimchat')
-    n = pynotify.Notification(title, msg, type)
-    n.set_timeout(5000)
-    n.show()
+    #Do this so we can work without pynotify
+    if pynotify_enabled:
+        pynotify.init('vimchat')
+        n = pynotify.Notification(title, msg, type)
+        n.set_timeout(5000)
+        n.show()
+    except:
+        pass
 #}}}
 
 #LOGGING
@@ -467,7 +479,7 @@ def vimChatSignOn():
         print "Already connected to VimChat!"
         return 0
     else:
-        print "Connecting.."
+        print "Connecting..."
 
     jid = vim.eval('g:vimchat_jid')
     password = vim.eval('g:vimchat_password')
