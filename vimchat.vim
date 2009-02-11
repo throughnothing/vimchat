@@ -382,6 +382,10 @@ def vimChatSendBufferShow():
 #}}}
 #{{{ vimChatAppendMessage
 def vimChatAppendMessage(buf, message):
+    if not buf:
+        print "VimChat: Invalid Buffer to append to!"
+        return 0
+
     lines = message.split("\n")
 
     #Get the first line
@@ -443,6 +447,10 @@ def vimChatSendMessage():
 
     tstamp = getTimestamp()
     chatBuf = getBufByName(chats[toJid])
+    if not chatBuf:
+        print "Chat Buffer Could not be found!"
+        return 0
+
     jid = toJid.split('/')[0]
 
     r = vim.current.range
@@ -463,7 +471,6 @@ def vimChatSendMessage():
 
 
     vim.command('hide')
-
     vim.command('sbuffer ' + str(chatBuf.number))
     vim.command('normal G')
 #}}}
@@ -534,7 +541,10 @@ def vimChatSignOff():
 #{{{ vimChatPresenceUpdate
 def vimChatPresenceUpdate(fromJid, show, status, priority):
     #Only care if we have the chat window open
+    fromJid = str(fromJid).split('/')[0]
+
     if fromJid in chats.keys():
+        #fromJid = str(fromJid.split('/')[0])
         #print "PresenceUpdate: " + str(fromJid) + " : " + str(show)
         #get the buffer of the chat
         chatBuf = getBufByName(chats[fromJid])
