@@ -389,7 +389,7 @@ def vimChatAppendMessage(buf, message):
     buf.append(line)
 
     for line in lines:
-        line = tstamp + '\t' + line
+        line = '\t' + line
         buf.append(line)
 #}}}
 
