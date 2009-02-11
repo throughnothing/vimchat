@@ -262,6 +262,8 @@ def vimChatShowBuddyList():
         vim.command("silent wincmd H")
         vim.command("silent vertical resize " + buddyListWidth)
         vim.command("silent e!")
+        vim.command("setlocal noswapfile")
+        vim.command("setlocal buftype=nowrite")
     except:
         vim.command("tabe " + rosterFile)
 
@@ -305,7 +307,8 @@ def vimChatBeginChatFromBuddyList():
 
     #Hid Buddy list
     vim.command("hide")
-    vimChatBeginChat(toJid)
+    buf = vimChatBeginChat(toJid)
+    vim.command('sbuffer ' + str(buf.number))
 #}}}
 
 #CHAT BUFFERS
@@ -320,12 +323,13 @@ def vimChatBeginChat(toJid):
 
     bExists = int(vim.eval('bufexists("' + chatFile + '")'))
     if bExists: 
-        vim.command("sbuffer " + chatFile)
+        return getBufByName(chatFile)
     else:
         vim.command("split " + chatFile)
         #Only do this stuff if its a new buffer
         vim.command("let b:buddyId = '" + toJid + "'")
         vimChatSetupChatBuffer();
+        return vim.current.buffer
 
 #}}}
 #{{{ vimChatSetupChatBuffer
@@ -377,9 +381,8 @@ def vimChatSendBufferShow():
 
 #}}}
 #{{{ vimChatAppendMessage
-def vimChatAppendMessage(bufName, message):
+def vimChatAppendMessage(buf, message):
     lines = message.split("\n")
-    buf = getBufByName(bufName)
 
     #Get the first line
     line = lines.pop(0);
@@ -558,26 +561,21 @@ def vimChatMessageReceived(fromJid, message):
     else:
         resource = ''
 
-    vimChatBeginChat(jid)
+    buf = vimChatBeginChat(jid)
 
     #get timestamp
     tstamp = getTimestamp()
     fullMessage = tstamp + " " + user + '/' + resource + ": " + message
 
     #Append Message to File
-    vimChatAppendMessage(vim.current.buffer.name, fullMessage)
+    vimChatAppendMessage(buf, fullMessage)
 
     #Log the message
     vimChatLog(jid, fullMessage)
 
-    #LibNotify
-    vimChatNotify(user + ' says:', message, 'dialog-warning')
-
+    #Notify
     print "Message Received from: " + jid
-    vim.command("normal G")
-
-    #Switch Back to the buffer we were in
-    #vim.command("sbuffer " + str(origBufNum))
+    vimChatNotify(user + ' says:', message, 'dialog-warning')
 #}}}
 
 
