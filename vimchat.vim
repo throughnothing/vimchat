@@ -579,6 +579,12 @@ def vimChatMessageReceived(fromJid, message):
     #Store the buffer we were in
     origBufNum = vim.current.buffer.number
 
+    # If the current buffer is the buddy list, then switch to a different
+    # window first. This should help keep all the new windows split
+    # horizontally.
+    if origBufNum == chatServer.buddyListBuffer.number:
+        vim.command('wincmd w')
+
     jidParts = fromJid.split('/')
     jid = jidParts[0]
     user = jid.split('@')[0]
