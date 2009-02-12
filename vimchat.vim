@@ -382,7 +382,6 @@ def vimChatSetupChatBuffer():
     setlocal nosi
     setlocal syntax=dcl
     setlocal wrap
-    setlocal nomodifiable
     nnoremap <buffer> <silent> i :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> <silent> o :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> <silent> a :py vimChatSendBufferShow()<CR>
