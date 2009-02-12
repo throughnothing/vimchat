@@ -27,6 +27,7 @@ let g:vimchat_loaded = 1
 "Vim Commands
 "{{{ Vim Commands
 com! VimChat py vimChatSignOn()
+com! VimChatBuddyList py vimChatToggleBuddyList()
 com! VimChatSignOn py vimChatSignOn()
 com! VimChatSignOff py vimChatSignOff()
 
@@ -352,22 +353,17 @@ def vimChatBeginChatFromBuddyList():
 #CHAT BUFFERS
 #{{{ vimChatBeginChat
 def vimChatBeginChat(toJid):
-    print "VimChatBeginChat!"
     #Set the ChatFile
     if toJid in chats.keys():
-        print "toJid in keys!"
         chatFile = chats[toJid]
     else:
-        print "toJid NOT in keys!"
         chatFile = toJid
         chats[toJid] = chatFile
 
     bExists = int(vim.eval('buflisted("' + chatFile + '")'))
     if bExists: 
-        print "Chat already Exists!"
         return getBufByName(chatFile)
     else:
-        print "Creating new chat window!"
         vim.command("split " + chatFile)
         #Only do this stuff if its a new buffer
         vim.command("let b:buddyId = '" + toJid + "'")
@@ -387,9 +383,11 @@ def vimChatSetupChatBuffer():
     setlocal wrap
     nnoremap <buffer> i :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> o :py vimChatSendBufferShow()<CR>
+    nnoremap <buffer> a :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> B :py vimChatToggleBuddyList()<CR>
     nnoremap <buffer> H :silent hide<CR>
-    nnoremap <buffer> D :py vimChatDeleteChat()<CR>
+    nnoremap <buffer> D :silent py vimChatDeleteChat()<CR>
+    nnoremap <buffer> :q :silent py vimChatDeleteChat() <CR>
     """
     #au BufLeave <buffer> call clearmatches()
     vim.command(commands)
@@ -596,10 +594,12 @@ def vimChatPresenceUpdate(fromJid, show, status, priority):
     if fromJid in chats.keys():
         #Make sure buffer exists
         chatBuf = getBufByName(chats[fromJid])
-        if chatBuf:
+        bExists = int(vim.eval('buflisted("' + chatFile + '")'))
+        if chatBuf and bExists:
             statusUpdateLine = formatPresenceUpdateLine(fromJid,show,status)
             chatBuf.append(statusUpdateLine)
         else:
+            #Should never get here!
             print "Buffer did not exist for: " + fromJid
 
 #}}}
