@@ -259,7 +259,6 @@ def vimChatShowBuddyList():
         bufferList = vim.eval('tabpagebuflist()')
         if str(chatServer.buddyListBuffer.number) in bufferList:
             vim.command('sbuffer ' + str(chatServer.buddyListBuffer.number))
-            print 'going to hide buffer'
             vim.command('hide')
             return
 
@@ -285,7 +284,7 @@ def vimChatShowBuddyList():
     vim.command("set nowrap")
     vim.command("set foldmethod=marker")
     vim.command(
-        "nmap <buffer> <silent> <CR> :py vimChatBeginChatFromBuddyList()<CR>")
+        'nmap <buffer> <silent> <CR> :py vimChatBeginChatFromBuddyList()<CR>')
     vim.command("nnoremap <buffer> <silent> q :hide<CR>")
     vim.command("nnoremap <buffer> <silent> L :py vimChatOpenLog()<CR>")
     vim.command('nnoremap <buffer> B :py vimChatShowBuddyList()<CR>')
@@ -320,10 +319,9 @@ def vimChatBeginChatFromBuddyList():
     #Just in case
     toJid = toJid.split('/')[0]
 
-    #Hid Buddy list
-    vim.command("hide")
     buf = vimChatBeginChat(toJid)
     vim.command('sbuffer ' + str(buf.number))
+    vimChatShowBuddyList()
 #}}}
 
 #CHAT BUFFERS
