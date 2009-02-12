@@ -231,15 +231,47 @@ class VimChat(threading.Thread):
 #}}}
 
 #HELPER FUNCTIONS
+#{{{ formatFirstBufferLine
+def formatFirstBufferLine(line,jid=''):
+    tstamp = getTimestamp()
+
+    if jid != '':
+        [jid,user,resource] = getJidParts(jid)
+        return tstamp + user + "/" + resource + ": " + line
+    else:
+        return tstamp + "Me: " + line
+#}}}
+#{{{ formatContinuationBufferLine
+def formatContinuationBufferLine(line):
+    tstamp = getTimestamp()
+    return '\t' + line
+#}}}
+#{{{ formatPresenceUpdateLine
+def formatPresenceUpdateLine(fromJid,show, status):
+    tstamp = getTimestamp()
+    return tstamp + " -- " + str(fromJid) + " is " + str(show) + ": " + str(status)
+#}}}
+#{{{ getJidParts
+def getJidParts(jid):
+    jidParts = str(jid).split('/')
+    jid = jidParts[0]
+    user = jid.split('@')[0]
+
+    #Get A Resource if exists
+    if len(jidParts) > 1:
+        resource = jidParts[1]
+    else:
+        resource = ''
+
+    return [jid,user,resource]
+#}}}
 #{{{ getTimestamp
 def getTimestamp():
     return strftime("[%H:%M]")
 #}}}
 #{{{ getBufByName
 def getBufByName(name):
-    #print 'looking for name:', name
     for buf in vim.buffers:
-        #print 'checking:', str(buf.name)
         if buf.name and buf.name.split('/')[-1] == name:
             return buf
     return None
@@ -293,9 +325,6 @@ def vimChatToggleBuddyList():
 #{{{ vimChatGetBuddyListItem
 def vimChatGetBuddyListItem(item):
     if item == 'jid':
-        vim.command('let b:getLine = getline(".")=~"{\|}"')
-        getLine = vim.eval('b:getLine')
-
         vim.command("normal zo")
         vim.command("normal [z")
         vim.command("normal j")
@@ -307,10 +336,14 @@ def vimChatGetBuddyListItem(item):
 #{{{ vimChatBeginChatFromBuddyList
 def vimChatBeginChatFromBuddyList():
     toJid = vimChatGetBuddyListItem('jid')
-    #Just in case
-    toJid = toJid.split('/')[0]
+    [jid,user,resource] = getJidParts(toJid)
 
-    buf = vimChatBeginChat(toJid)
+    buf = vimChatBeginChat(jid)
+    if not buf:
+        #print "Error getting buddy info: " + jid
+        return 0
+
+
     vim.command('sbuffer ' + str(buf.number))
     vimChatToggleBuddyList()
     vim.command('wincmd K')
@@ -447,26 +480,27 @@ def vimChatSendMessage():
         print "No valid chat found!"
         return 0
 
-    tstamp = getTimestamp()
     chatBuf = getBufByName(chats[toJid])
     if not chatBuf:
         print "Chat Buffer Could not be found!"
         return 0
 
-    jid = toJid.split('/')[0]
+    [jid,user,resource] = getJidParts(toJid)
 
     r = vim.current.range
     body = ""
     for line in r:
         line = line.rstrip('\n')
         if body == "":
-            chatBuf.append(tstamp + " Me: " + line)
-            vimChatLog(jid, tstamp + " Me: " + line)
+            bufLine = formatFirstBufferLine(line)
+            chatBuf.append(bufLine)
+            vimChatLog(jid, bufLine)
         else:
-            chatBuf.append(tstamp + "\t" + line)
-            vimChatLog(jid, tstamp + "\t" + line)
-
+            bufLine = formatContinuationBufferLine(line)
+            chatBuf.append(bufLine)
+            vimChatLog(jid, bufLine)
         body = body + line + '\n'
+
 
     global chatServer
     chatServer.jabberSendMessage(toJid, body)
@@ -543,19 +577,13 @@ def vimChatSignOff():
 #{{{ vimChatPresenceUpdate
 def vimChatPresenceUpdate(fromJid, show, status, priority):
     #Only care if we have the chat window open
-    fromJid = str(fromJid).split('/')[0]
+    [fromJid,user,resource] = getJidParts(fromJid)
 
     if fromJid in chats.keys():
+        #Make sure buffer exists
         chatBuf = getBufByName(chats[fromJid])
         if chatBuf:
-            #fromJid = str(fromJid.split('/')[0])
-            #print "PresenceUpdate: " + str(fromJid) + " : " + str(show)
-            #get the buffer of the chat
-            tstamp = getTimestamp()
-            statusUpdateLine = \
-                tstamp + " -- " + str(fromJid) + \
-                " is " + str(show) + ": " + str(status)
-
+            statusUpdateLine = formatPresenceUpdateLine(fromJid,show,status)
             chatBuf.append(statusUpdateLine)
         else:
             print "Buffer did not exist for: " + fromJid
@@ -572,22 +600,12 @@ def vimChatMessageReceived(fromJid, message):
     if origBufNum == chatServer.buddyListBuffer.number:
         vim.command('wincmd w')
 
-    jidParts = fromJid.split('/')
-    jid = jidParts[0]
-    user = jid.split('@')[0]
-
-    #Get A Resource if exists
-    if len(jidParts) > 1:
-        resource = jidParts[1]
-    else:
-        resource = ''
+    #Get Jid Parts
+    [jid,user,resource] = getJidParts(fromJid)
 
     buf = vimChatBeginChat(jid)
 
-    #get timestamp
-    tstamp = getTimestamp()
-    fullMessage = tstamp + " " + user + '/' + resource + ": " + message
-
+    fullMessage = formatFirstBufferLine(message,fromJid)
     #Append Message to File
     vimChatAppendMessage(buf, fullMessage)
 
@@ -598,7 +616,6 @@ def vimChatMessageReceived(fromJid, message):
     print "Message Received from: " + jid
     vimChatNotify(user + ' says:', message, 'dialog-warning')
 #}}}
-
 
 EOF
 " vim:et:fdm=marker:sts=4:sw=4:ts=4
