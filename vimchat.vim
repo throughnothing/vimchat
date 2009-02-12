@@ -384,6 +384,7 @@ def vimChatSetupChatBuffer():
     nnoremap <buffer> o :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> B :py vimChatToggleBuddyList()<CR>
     nnoremap <buffer> q :silent hide<CR>
+    au BufEnter <buffer> call clearmatches()
     """
     vim.command(commands)
 #}}}
@@ -608,6 +609,7 @@ def vimChatMessageReceived(fromJid, message):
     fullMessage = formatFirstBufferLine(message,fromJid)
     #Append Message to File
     vimChatAppendMessage(buf, fullMessage)
+    vim.command("call matchadd('Error', '\%' . line('$') . 'l')")
 
     #Log the message
     vimChatLog(jid, fullMessage)
