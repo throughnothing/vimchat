@@ -100,6 +100,7 @@ class VimChat(threading.Thread):
     _vim = 'vim'
     _rosterFile = '/tmp/vimChatRoster'
     _roster = {}
+    buddyListBuffer = None
 
     #{{{ __init__
     def __init__(self, jid, jabberClient, roster, callbacks):
@@ -246,10 +247,21 @@ def getBufByName(name):
 #BUDDY LIST
 #{{{ VimChatShowBuddyList
 def vimChatShowBuddyList():
+    # godlygeek's way to determine if a buffer is hidden in one line:
+    #:echo len(filter(map(range(1, tabpagenr('$')), 'tabpagebuflist(v:val)'), 'index(v:val, 4) == 0'))
+
     global chatServer
     if not chatServer:
         print "Not Connected!  Please connect first."
         return 0
+
+    if chatServer.buddyListBuffer:
+        bufferList = vim.eval('tabpagebuflist()')
+        if str(chatServer.buddyListBuffer.number) in bufferList:
+            vim.command('sbuffer ' + str(chatServer.buddyListBuffer.number))
+            print 'going to hide buffer'
+            vim.command('hide')
+            return
 
     #Write buddy list to file
     chatServer.writeRoster()
@@ -266,6 +278,8 @@ def vimChatShowBuddyList():
         vim.command("setlocal buftype=nowrite")
     except:
         vim.command("tabe " + rosterFile)
+
+    chatServer.buddyListBuffer = vim.current.buffer
 
     vim.command("setlocal foldtext=VimChatFoldText()")
     vim.command("set nowrap")
