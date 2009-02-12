@@ -90,6 +90,7 @@ except:
 #Global Variables
 chats = {}
 chatServer = ""
+newMessageStack = []
 #}}}
 
 #CLASSES
@@ -318,7 +319,6 @@ def vimChatToggleBuddyList():
     vim.command("set foldmethod=marker")
     vim.command(
         'nmap <buffer> <silent> <CR> :py vimChatBeginChatFromBuddyList()<CR>')
-    vim.command("nnoremap <buffer> <silent> q :hide<CR>")
     vim.command("nnoremap <buffer> <silent> L :py vimChatOpenLog()<CR>")
     vim.command('nnoremap <buffer> B :py vimChatToggleBuddyList()<CR>')
 #}}}
@@ -352,17 +352,22 @@ def vimChatBeginChatFromBuddyList():
 #CHAT BUFFERS
 #{{{ vimChatBeginChat
 def vimChatBeginChat(toJid):
+    print "VimChatBeginChat!"
     #Set the ChatFile
     if toJid in chats.keys():
+        print "toJid in keys!"
         chatFile = chats[toJid]
     else:
+        print "toJid NOT in keys!"
         chatFile = toJid
         chats[toJid] = chatFile
 
-    bExists = int(vim.eval('bufexists("' + chatFile + '")'))
+    bExists = int(vim.eval('buflisted("' + chatFile + '")'))
     if bExists: 
+        print "Chat already Exists!"
         return getBufByName(chatFile)
     else:
+        print "Creating new chat window!"
         vim.command("split " + chatFile)
         #Only do this stuff if its a new buffer
         vim.command("let b:buddyId = '" + toJid + "'")
@@ -383,9 +388,10 @@ def vimChatSetupChatBuffer():
     nnoremap <buffer> i :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> o :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> B :py vimChatToggleBuddyList()<CR>
-    nnoremap <buffer> q :silent hide<CR>
-    au BufLeave <buffer> call clearmatches()
+    nnoremap <buffer> H :silent hide<CR>
+    nnoremap <buffer> D :py vimChatDeleteChat()<CR>
     """
+    #au BufLeave <buffer> call clearmatches()
     vim.command(commands)
 #}}}
 #{{{ vimChatSendBufferShow
@@ -432,6 +438,12 @@ def vimChatAppendMessage(buf, message):
         line = '\t' + line
         buf.append(line)
 #}}}
+#{{{ vimChatDeleteChat
+def vimChatDeleteChat():
+    #remove it from chats list
+    del chats[vim.current.buffer.name.split('/')[-1]]
+    vim.command('bdelete!')
+#}}}
 
 #NOTIFY
 #{{{ vimChatNotify
@@ -461,15 +473,16 @@ def vimChatLog(user, msg):
 #}}}
 #{{{ vimChatOpenLog
 def vimChatOpenLog():
-    user = vimChatGetBuddyListItem('jid')
-    logPath = vim.eval('g:vimchat_logpath')
-    logDir = os.path.expanduser(logPath + '/' + user)
-    if not os.path.exists(logDir):
-        print "No Logfile Found"
-        return 0
-    else:
-        vim.command('silent tabe ' + logDir)
-
+    if vim.current.buffer.name == chatServer._rosterFile:
+        user = vimChatGetBuddyListItem('jid')
+        logPath = vim.eval('g:vimchat_logpath')
+        logDir = os.path.expanduser(logPath + '/' + user)
+        if not os.path.exists(logDir):
+            print "No Logfile Found"
+            return 0
+        else:
+            print "Opening log for: " + logDir
+            vim.command('tabe ' + logDir)
 #}}}
 
 #OUTGOING
