@@ -288,6 +288,7 @@ def vimChatShowBuddyList():
         "nmap <buffer> <silent> <CR> :py vimChatBeginChatFromBuddyList()<CR>")
     vim.command("nnoremap <buffer> <silent> q :hide<CR>")
     vim.command("nnoremap <buffer> <silent> L :py vimChatOpenLog()<CR>")
+    vim.command('nnoremap <buffer> B :py vimChatShowBuddyList()<CR>')
 #}}}
 #{{{ vimChatGetBuddyListItem
 def vimChatGetBuddyListItem(item):
