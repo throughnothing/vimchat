@@ -237,8 +237,10 @@ def getTimestamp():
 #}}}
 #{{{ getBufByName
 def getBufByName(name):
+    #print 'looking for name:', name
     for buf in vim.buffers:
-        if buf.name == name:
+        #print 'checking:', str(buf.name)
+        if buf.name and buf.name.split('/')[-1] == name:
             return buf
     return None
 #}}}
@@ -293,24 +295,14 @@ def vimChatGetBuddyListItem(item):
     if item == 'jid':
         vim.command('let b:getLine = getline(".")=~"{\|}"')
         getLine = vim.eval('b:getLine')
-        vim.command('let b:foldClosed = foldclosed(".")')
-        foldClosed = vim.eval('b:foldClosed')
 
-        if int(foldClosed) == -1:
-            #If the fold is not closed
-            vim.command("normal! ]z")
-            vim.command("normal! [z")
-            vim.command("normal! j")
-        else:
-            #If the fold is closed
-            vim.command("normal! za")
-            vim.command("normal! j")
-
+        vim.command("normal zo")
+        vim.command("normal [z")
+        vim.command("normal j")
 
         toJid = vim.current.line
         toJid = toJid.strip()
         return toJid
-
 #}}}
 #{{{ vimChatBeginChatFromBuddyList
 def vimChatBeginChatFromBuddyList():
@@ -365,9 +357,6 @@ def vimChatSetupChatBuffer():
 #{{{ vimChatSendBufferShow
 def vimChatSendBufferShow():
     toJid = vim.eval('b:buddyId')
-
-    origBuf = vim.current.buffer.name
-    chats[toJid]= origBuf
 
     #Create sending buffer
     sendBuffer = "sendTo:" + toJid
