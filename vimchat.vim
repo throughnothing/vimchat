@@ -321,6 +321,7 @@ def vimChatBeginChatFromBuddyList():
     buf = vimChatBeginChat(toJid)
     vim.command('sbuffer ' + str(buf.number))
     vimChatToggleBuddyList()
+    vim.command('wincmd K')
 #}}}
 
 #CHAT BUFFERS
