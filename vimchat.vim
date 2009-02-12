@@ -544,16 +544,19 @@ def vimChatPresenceUpdate(fromJid, show, status, priority):
     fromJid = str(fromJid).split('/')[0]
 
     if fromJid in chats.keys():
-        #fromJid = str(fromJid.split('/')[0])
-        #print "PresenceUpdate: " + str(fromJid) + " : " + str(show)
-        #get the buffer of the chat
         chatBuf = getBufByName(chats[fromJid])
-        tstamp = getTimestamp()
-        statusUpdateLine = \
-            tstamp + " -- " + str(fromJid) + \
-            " is " + str(show) + ": " + str(status)
+        if chatBuf:
+            #fromJid = str(fromJid.split('/')[0])
+            #print "PresenceUpdate: " + str(fromJid) + " : " + str(show)
+            #get the buffer of the chat
+            tstamp = getTimestamp()
+            statusUpdateLine = \
+                tstamp + " -- " + str(fromJid) + \
+                " is " + str(show) + ": " + str(status)
 
-        chatBuf.append(statusUpdateLine)
+            chatBuf.append(statusUpdateLine)
+        else:
+            print "Buffer did not exist for: " + fromJid
 
 #}}}
 #{{{ vimChatMessageReceived
