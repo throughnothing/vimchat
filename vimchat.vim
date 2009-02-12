@@ -27,7 +27,6 @@ let g:vimchat_loaded = 1
 "Vim Commands
 "{{{ Vim Commands
 com! VimChat py vimChatSignOn()
-com! VimChatBuddyList py vimChatToggleBuddyList()
 com! VimChatSignOn py vimChatSignOn()
 com! VimChatSignOff py vimChatSignOff()
 
@@ -386,9 +385,7 @@ def vimChatSetupChatBuffer():
     nnoremap <buffer> <silent> o :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> <silent> a :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> <silent> B :py vimChatToggleBuddyList()<CR>
-    nnoremap <buffer> <silent> H :hide<CR>
-    nnoremap <buffer> <silent> D :py vimChatDeleteChat()<CR>
-    nnoremap <buffer> <silent> :q :py vimChatDeleteChat() <CR>
+    nnoremap <buffer> <silent> q :py vimChatDeleteChat()<CR>
     nnoremap <buffer> <silent> L :py vimChatOpenLogFromChat()<CR>
     """
     #au BufLeave <buffer> call clearmatches()
@@ -548,7 +545,7 @@ def vimChatSignOn():
         return 0
 
     if chatServer:
-        print "Already connected to VimChat!"
+        vimChatToggleBuddyList()
         return 0
     else:
         print "Connecting..."
@@ -602,6 +599,7 @@ def vimChatSignOff():
 #{{{ vimChatPresenceUpdate
 def vimChatPresenceUpdate(fromJid, show, status, priority):
     #Only care if we have the chat window open
+    fullJid = fromJid
     [fromJid,user,resource] = getJidParts(fromJid)
 
     if fromJid in chats.keys():
@@ -610,8 +608,9 @@ def vimChatPresenceUpdate(fromJid, show, status, priority):
         chatFile = chats[fromJid]
         bExists = int(vim.eval('buflisted("' + chatFile + '")'))
         if chatBuf and bExists:
-            statusUpdateLine = formatPresenceUpdateLine(fromJid,show,status)
-            chatBuf.append(statusUpdateLine)
+            statusUpdateLine = formatPresenceUpdateLine(fullJid,show,status)
+            if chatBuf[-1] != statusUpdateLine:
+                chatBuf.append(statusUpdateLine)
         else:
             #Should never get here!
             print "Buffer did not exist for: " + fromJid
