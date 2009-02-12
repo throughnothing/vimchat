@@ -384,10 +384,8 @@ def vimChatSetupChatBuffer():
     nnoremap <buffer> o :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> B :py vimChatToggleBuddyList()<CR>
     nnoremap <buffer> q :silent hide<CR>
-    au CursorMoved <buffer> call clearmatches()
+    au BufLeave <buffer> call clearmatches()
     """
-    #au FileAppendPost <buffer> normal G
-    #au BufEnter <buffer> normal G
     vim.command(commands)
 #}}}
 #{{{ vimChatSendBufferShow
@@ -610,14 +608,23 @@ def vimChatMessageReceived(fromJid, message):
 
     fullMessage = formatFirstBufferLine(message,fromJid)
 
-    #Log the message
+    # Log the message.
     vimChatLog(jid, fullMessage)
 
-    #Append Message to File
+    # Append message to the buffer.
     vimChatAppendMessage(buf, fullMessage)
-    vim.command("call matchadd('Error', '\%' . line('$') . 'l')")
 
-    #Notify
+    # Highlight the line.
+    # TODO: This only works if the right window has focus.  Otherwise it
+    # highlights the wrong lines.
+    # vim.command("call matchadd('Error', '\%' . line('$') . 'l')")
+
+    # Update the cursor.
+    for w in vim.windows:
+        if w.buffer == buf:
+            w.cursor = (len(buf), 0)
+
+    # Notify
     print "Message Received from: " + jid
     vimChatNotify(user + ' says:', message, 'dialog-warning')
 #}}}
