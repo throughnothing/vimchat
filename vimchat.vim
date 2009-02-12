@@ -29,7 +29,6 @@ let g:vimchat_loaded = 1
 com! VimChat py vimChatSignOn()
 com! VimChatSignOn py vimChatSignOn()
 com! VimChatSignOff py vimChatSignOff()
-com! VimChatShowBuddyList py vimChatShowBuddyList()
 
 "Connect to jabber
 map <Leader>vcc :silent py vimChatSignOn()<CR>
@@ -245,8 +244,8 @@ def getBufByName(name):
 #}}}
 
 #BUDDY LIST
-#{{{ VimChatShowBuddyList
-def vimChatShowBuddyList():
+#{{{ vimChatToggleBuddyList
+def vimChatToggleBuddyList():
     # godlygeek's way to determine if a buffer is hidden in one line:
     #:echo len(filter(map(range(1, tabpagenr('$')), 'tabpagebuflist(v:val)'), 'index(v:val, 4) == 0'))
 
@@ -287,7 +286,7 @@ def vimChatShowBuddyList():
         'nmap <buffer> <silent> <CR> :py vimChatBeginChatFromBuddyList()<CR>')
     vim.command("nnoremap <buffer> <silent> q :hide<CR>")
     vim.command("nnoremap <buffer> <silent> L :py vimChatOpenLog()<CR>")
-    vim.command('nnoremap <buffer> B :py vimChatShowBuddyList()<CR>')
+    vim.command('nnoremap <buffer> B :py vimChatToggleBuddyList()<CR>')
 #}}}
 #{{{ vimChatGetBuddyListItem
 def vimChatGetBuddyListItem(item):
@@ -321,7 +320,7 @@ def vimChatBeginChatFromBuddyList():
 
     buf = vimChatBeginChat(toJid)
     vim.command('sbuffer ' + str(buf.number))
-    vimChatShowBuddyList()
+    vimChatToggleBuddyList()
 #}}}
 
 #CHAT BUFFERS
@@ -357,7 +356,7 @@ def vimChatSetupChatBuffer():
     setlocal wrap
     nnoremap <buffer> i :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> o :py vimChatSendBufferShow()<CR>
-    nnoremap <buffer> B :py vimChatShowBuddyList()<CR>
+    nnoremap <buffer> B :py vimChatToggleBuddyList()<CR>
     nnoremap <buffer> q :silent hide<CR>
     """
     vim.command(commands)
@@ -490,7 +489,7 @@ def vimChatSendMessage():
 #{{{ vimChatSignOn
 def vimChatSignOn():
     global chatServer
-    vim.command('nnoremap <buffer> B :py vimChatShowBuddyList()<CR>')
+    vim.command('nnoremap <buffer> B :py vimChatToggleBuddyList()<CR>')
 
     vim.command('let s:hasVars = VimChatCheckVars()')
     hasVars = int(vim.eval('s:hasVars'))
@@ -533,7 +532,7 @@ def vimChatSignOn():
 
     print "Connected with VimChat (" + jid + ")"
 
-    vimChatShowBuddyList()
+    vimChatToggleBuddyList()
     
 #}}}
 #{{{ vimChatSignOff
