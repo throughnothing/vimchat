@@ -320,7 +320,7 @@ def vimChatToggleBuddyList():
     vim.command("set foldmethod=marker")
     vim.command(
         'nmap <buffer> <silent> <CR> :py vimChatBeginChatFromBuddyList()<CR>')
-    vim.command("nnoremap <buffer> <silent> L :py vimChatOpenLog()<CR>")
+    vim.command("nnoremap <buffer> <silent> L :py vimChatOpenLogFromBuddyList()<CR>")
     vim.command('nnoremap <buffer> B :py vimChatToggleBuddyList()<CR>')
 #}}}
 #{{{ vimChatGetBuddyListItem
@@ -381,13 +381,14 @@ def vimChatSetupChatBuffer():
     setlocal nosi
     setlocal syntax=dcl
     setlocal wrap
-    nnoremap <buffer> i :py vimChatSendBufferShow()<CR>
-    nnoremap <buffer> o :py vimChatSendBufferShow()<CR>
-    nnoremap <buffer> a :py vimChatSendBufferShow()<CR>
-    nnoremap <buffer> B :py vimChatToggleBuddyList()<CR>
-    nnoremap <buffer> H :silent hide<CR>
-    nnoremap <buffer> D :silent py vimChatDeleteChat()<CR>
-    nnoremap <buffer> :q :silent py vimChatDeleteChat() <CR>
+    nnoremap <buffer> <silent> i :py vimChatSendBufferShow()<CR>
+    nnoremap <buffer> <silent> o :py vimChatSendBufferShow()<CR>
+    nnoremap <buffer> <silent> a :py vimChatSendBufferShow()<CR>
+    nnoremap <buffer> <silent> B :py vimChatToggleBuddyList()<CR>
+    nnoremap <buffer> <silent> H :hide<CR>
+    nnoremap <buffer> <silent> D :py vimChatDeleteChat()<CR>
+    nnoremap <buffer> <silent> :q :py vimChatDeleteChat() <CR>
+    nnoremap <buffer> <silent> L :py vimChatOpenLogFromChat()<CR>
     """
     #au BufLeave <buffer> call clearmatches()
     vim.command(commands)
@@ -469,12 +470,23 @@ def vimChatLog(user, msg):
         log.write(msg + '\n')
         log.close()
 #}}}
+#{{{ vimChatOpenLogFromBuddyList
+def vimChatOpenLogFromBuddyList():
+    jid = vimChatGetBuddyListItem('jid')
+    vimChatOpenLog(jid)
+#}}}
+#{{{ vimChatOpenLogFromChat
+def vimChatOpenLogFromChat():
+    jid = vim.eval('b:buddyId')
+    if jid != '':
+        vimChatOpenLog(jid)
+    else:
+        print "Invalid chat window!"
+#}}}
 #{{{ vimChatOpenLog
-def vimChatOpenLog():
-    if vim.current.buffer.name == chatServer._rosterFile:
-        user = vimChatGetBuddyListItem('jid')
+def vimChatOpenLog(jid):
         logPath = vim.eval('g:vimchat_logpath')
-        logDir = os.path.expanduser(logPath + '/' + user)
+        logDir = os.path.expanduser(logPath + '/' + jid)
         if not os.path.exists(logDir):
             print "No Logfile Found"
             return 0
