@@ -384,8 +384,10 @@ def vimChatSetupChatBuffer():
     nnoremap <buffer> o :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> B :py vimChatToggleBuddyList()<CR>
     nnoremap <buffer> q :silent hide<CR>
-    au BufEnter <buffer> call clearmatches()
+    au CursorMoved <buffer> call clearmatches()
     """
+    #au FileAppendPost <buffer> normal G
+    #au BufEnter <buffer> normal G
     vim.command(commands)
 #}}}
 #{{{ vimChatSendBufferShow
@@ -607,12 +609,13 @@ def vimChatMessageReceived(fromJid, message):
     buf = vimChatBeginChat(jid)
 
     fullMessage = formatFirstBufferLine(message,fromJid)
-    #Append Message to File
-    vimChatAppendMessage(buf, fullMessage)
-    vim.command("call matchadd('Error', '\%' . line('$') . 'l')")
 
     #Log the message
     vimChatLog(jid, fullMessage)
+
+    #Append Message to File
+    vimChatAppendMessage(buf, fullMessage)
+    vim.command("call matchadd('Error', '\%' . line('$') . 'l')")
 
     #Notify
     print "Message Received from: " + jid
