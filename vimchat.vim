@@ -309,6 +309,7 @@ def vimChatToggleBuddyList():
         vim.command("silent vertical resize " + buddyListWidth)
         vim.command("silent e!")
         vim.command("setlocal noswapfile")
+        vim.command("setlocal nomodifiable")
         vim.command("setlocal buftype=nowrite")
     except:
         vim.command("tabe " + rosterFile)
@@ -381,6 +382,7 @@ def vimChatSetupChatBuffer():
     setlocal nosi
     setlocal syntax=dcl
     setlocal wrap
+    setlocal nomodifiable
     nnoremap <buffer> <silent> i :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> <silent> o :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> <silent> a :py vimChatSendBufferShow()<CR>
@@ -606,6 +608,7 @@ def vimChatPresenceUpdate(fromJid, show, status, priority):
     if fromJid in chats.keys():
         #Make sure buffer exists
         chatBuf = getBufByName(chats[fromJid])
+        chatFile = chats[fromJid]
         bExists = int(vim.eval('buflisted("' + chatFile + '")'))
         if chatBuf and bExists:
             statusUpdateLine = formatPresenceUpdateLine(fromJid,show,status)
