@@ -92,8 +92,6 @@ try:
 except:
     pyotr_enabled = False
 
-pyotr_enabled = False
-
 #Global Variables
 chats = {}
 chatServer = ""
@@ -202,19 +200,24 @@ class OtrOps:
     def gone_secure(self, opdata=None, context=None):
         trust = context.active_fingerprint.trust
         if trust:
-           trust = "verified"
+           trust = "Verified"
         else:
-           trust = "unverified"
-
-        print "%s secured OTR connection started with "%trust
-       #write_message(our_account=accountname, proto=protocol, contact=username,
-       #    "%s secured OTR connection started"%trust)
+           trust = "Unverified"
+        
+        buf = getBufByName(chats[context.username])
+        if buf:
+            message = ""
+            jid = "[OTR]"
+            vimChatAppendMessage(buf,"-- " + trust + " OTR Connection Started")
+            print trust+" OTR Connection Started with "+str(context.username)
     #}}}
     #{{{ gone_insecure
     def gone_insecure(self, opdata=None, context=None):
-        print "Secured OTR connection with %s has stopped" % contact
-        #write_message(our_account=accountname, proto=protocol, contact=username,
-        #   "secured OTR connection stopped")
+        buf = getBufByName(chats[context.username])
+        if buf:
+            message = ""
+            jid = "[OTR]"
+            vimChatAppendMessage(buf,"-- Secured OTR Connection Ended")
     #}}}
     #{{{ still_secure
     def still_secure(self, opdata=None, context=None, is_reply=0):
@@ -223,9 +226,11 @@ class OtrOps:
         # is_reply will be 0 when we started we started that refresh, 
         #   1 when the contact started it
 
-        #write_message(our_account=accountname, proto=protocol, contact=username,
-        #   "secured OTR connection refreshed")
-        print "Secured OTR connection refreshed"
+        buf = getBufByName(chats[context.username])
+        if buf:
+            message = ""
+            jid = "[OTR]"
+            vimChatAppendMessage(buf,"-- Secured OTR Connection Ended")
     #}}}
     #{{{ log_message
     def log_message(self, opdata=None, message=None):
@@ -352,8 +357,14 @@ class VimChat(threading.Thread):
                     self._otr_userstate,jid,self._jid,self._protocol,1)[0]
 
                 secure = False
-                if context.msgstate == otr.OTRL_MSGSTATE_ENCRYPTED:
-                    secure = True
+                type = otr.otrl_proto_message_type(body)
+                if type == otr.OTRL_MSGTYPE_DATA:
+                    if context.active_fingerprint:
+                        trust = context.active_fingerprint.trust
+                        if trust:
+                            secure = "Verified"
+                        else:
+                            secure = "Unverified"
 
                 if not is_internal and message:
                     self._recievedMessage(fromJid, message.strip(),secure)
@@ -461,6 +472,7 @@ class VimChat(threading.Thread):
                 otr.otrl_privkey_read_fingerprints(
                     self._otr_userstate,fprintPath)
     #}}}
+
 #}}}
 
 #HELPER FUNCTIONS
@@ -656,7 +668,7 @@ def vimChatAppendMessage(buf, message, jid='Me',secure=False):
     
     secureString = ""
     if secure:
-        secureString = "(*)"
+        secureString = "(*" + secure + "*)"
 
     #Get the first line
     if resource:
@@ -673,7 +685,7 @@ def vimChatAppendMessage(buf, message, jid='Me',secure=False):
         vimChatLog(jid, line)
 
     #move cursor to bottom of buffer
-    moveCursorToBufBottom(buf)
+    #moveCursorToBufBottom(buf)
 #}}}
 #{{{ vimChatDeleteChat
 def vimChatDeleteChat():
