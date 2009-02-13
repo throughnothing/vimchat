@@ -337,16 +337,24 @@ class VimChat(threading.Thread):
     def jabberMessageReceive(self, conn, msg):
         if msg.getBody():
             fromJid = str(msg.getFrom())
+            jid = fromJid.split('/')[0]
             body = str(msg.getBody())
 
             if pyotr_enabled:
                 #OTR Stuff
                 is_internal, message, tlvs = otr.otrl_message_receiving(
                     self._otr_userstate, (
-                        OtrOps(),None),self._jid,self._protocol,fromJid, body)
+                        OtrOps(),None),self._jid,self._protocol,jid, body)
+
+                context = otr.otrl_context_find(
+                    self._otr_userstate,jid,self._jid,self._protocol,1)[0]
+
+                secure = False
+                if context.msgstate == otr.OTRL_MSGSTATE_ENCRYPTED:
+                    secure = True
 
                 if not is_internal and message:
-                    self._recievedMessage(fromJid, message.strip())
+                    self._recievedMessage(fromJid, message.strip(),secure)
             else:
                 self._recievedMessage(fromJid,body.strip())
     #}}}
@@ -382,6 +390,7 @@ class VimChat(threading.Thread):
         context = otr.otrl_context_find(
             self._otr_userstate,tojid,self._jid,self._protocol,1)[0]
 
+        context.msgstate == otr.OTRL_MSGSTATE_ENCRYPTED
         otr.otrl_message_fragment_and_send(
             (OtrOps(),None),context,new_message,otr.OTRL_FRAGMENT_SEND_ALL)
     #}}}
@@ -633,7 +642,7 @@ def vimChatSendBufferShow():
 
 #}}}
 #{{{ vimChatAppendMessage
-def vimChatAppendMessage(buf, message, jid='Me'):
+def vimChatAppendMessage(buf, message, jid='Me',secure=False):
     if not buf:
         print "VimChat: Invalid Buffer to append to!"
         return 0
@@ -642,12 +651,16 @@ def vimChatAppendMessage(buf, message, jid='Me'):
     tstamp = getTimestamp()
 
     jid,user,resource = getJidParts(jid)
+    
+    secureString = ""
+    if secure:
+        secureString = "(*)"
 
     #Get the first line
     if resource:
-        line = tstamp + user + "/" + resource + ": " + lines.pop(0);
+        line = tstamp + secureString + user + "/" + resource + ": " + lines.pop(0);
     else:
-        line = tstamp + user + ": " + lines.pop(0);
+        line = tstamp + secureString + user + ": " + lines.pop(0);
 
     buf.append(line)
     vimChatLog(jid, line)
@@ -731,8 +744,6 @@ def vimChatSendMessage():
     if not chatBuf:
         print "Chat Buffer Could not be found!"
         return 0
-
-    [jid,user,resource] = getJidParts(toJid)
 
     r = vim.current.range
     body = ""
@@ -829,13 +840,15 @@ def vimChatPresenceUpdate(fromJid, show, status, priority):
             if chatBuf[-1] != statusUpdateLine:
                 chatBuf.append(statusUpdateLine)
                 moveCursorToBufBottom(chatBuf)
+
+                print "Presence Updated for: " + fullJid
         else:
             #Should never get here!
             print "Buffer did not exist for: " + fromJid
 
 #}}}
 #{{{ vimChatMessageReceived
-def vimChatMessageReceived(fromJid, message):
+def vimChatMessageReceived(fromJid, message, secure=False):
     #Store the buffer we were in
     origBufNum = vim.current.buffer.number
 
@@ -851,7 +864,7 @@ def vimChatMessageReceived(fromJid, message):
     buf = vimChatBeginChat(jid)
 
     # Append message to the buffer.
-    vimChatAppendMessage(buf, message, fromJid)
+    vimChatAppendMessage(buf, message, fromJid,secure)
 
     # Highlight the line.
     # TODO: This only works if the right window has focus.  Otherwise it
