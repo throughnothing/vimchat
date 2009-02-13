@@ -92,6 +92,8 @@ try:
 except:
     pyotr_enabled = False
 
+pyotr_enabled = False
+
 #Global Variables
 chats = {}
 chatServer = ""
@@ -841,7 +843,7 @@ def vimChatPresenceUpdate(fromJid, show, status, priority):
                 chatBuf.append(statusUpdateLine)
                 moveCursorToBufBottom(chatBuf)
 
-                print "Presence Updated for: " + fullJid
+                print "Presence Updated for: " + str(fullJid)
         else:
             #Should never get here!
             print "Buffer did not exist for: " + fromJid
