@@ -86,14 +86,168 @@ except:
     print "pynotify missing...no notifications will occur!"
     pynotify_enabled = False
 
+try:
+    import otr
+    pyotr_enabled = True
+except:
+    pyotr_enabled = False
 
 #Global Variables
 chats = {}
 chatServer = ""
 newMessageStack = []
+otr_userstate = ""
+otr_basedir = '~/.vimchat/otr'
+otr_keyfile = 'otrkey'
+otr_fingerprints = 'fingerprints'
 #}}}
 
 #CLASSES
+#{{{ class OtrOps
+class OtrOps:
+    #{{{ policy
+    def policy(self, opdata=None, context=None):
+        """ checks for the contacts username in policylist and returns it
+        if available, otherwise checks for a default entry and returns it
+        if available, otherwise just return python-otr's default """
+        return otr.OTRL_POLICY_DEFAULT
+    #}}}
+    #{{{ create_privkey
+    def create_privkey(self, opdata=None, accountname=None, protocol=None):
+        # should give the user some visual feedback here, generating can take some time!
+        # the private key MUST be available when this method returned
+        print "No OTR private key found!  Generating now (this may take some time)...."
+        
+        keypath = os.path.expanduser(otr_basedir + '/' + otr_keyfile)
+        if chatServer:
+            otr.otrl_privkey_generate(
+                chatServer._otr_userstate, keypath, accountname, protocol)
+        else:
+            print "Error in create_privkey"
+    #}}}
+    #{{{ is_logged_in
+    def is_logged_in(self, opdata=None, accountname=None, protocol=None, recipient=None):
+        if recipient and chatServer:
+            chatServer._roster.getPriority(recipient)
+            if priority:
+                return True
+            return False
+        else:
+            print "Error in is_logged_in"
+            return False
+    #}}}
+    #{{{ inject_message	
+    def inject_message(self, opdata=None, accountname=None, protocol=None, recipient=None, message=None):
+        if recipient and message and chatServer:
+            chatServer.jabberSendMessage(recipient, message)
+        else:
+            print "Error in inject_message"
+    #}}}
+    #{{{ notify
+    def notify(sef, opdata=None, level=None, accountname=None, protocol=None, username=None, title=None, primary=None, secondary=None):
+        # show a small dialog or something like that
+        # level is otr.OTRL_NOTIFY_ERROR, otr.OTRL_NOTIFY_WARNING or otr.OTRL_NOTIFY_INFO
+        # primary and secondary are the messages that should be displayed
+        pass
+    #}}}
+    #{{{ display_otr_message
+    def display_otr_message(self, opdata=None, accountname=None, protocol=None, username=None, msg=None):
+        # this usually logs to the conversation window
+
+        #write_message(our_account=accountname, proto=protocol, contact=username, message=msg)
+        # NOTE: this function MUST return 0 if it processed the message
+        # OR non-zero, the message will then be passed to notify() by OTR
+        return 0
+    #}}}
+    #{{{ update_context_lis
+    def update_context_list(self, opdata=None):
+        # this method may provide some visual feedback when the context list was updated
+        # this may be useful if you have a central way of setting fingerprints' trusts
+        # and you want to update the list of contexts to consider in this way
+        pass
+    #}}}
+    #{{{ protocol_name
+    def protocol_name(self, opdata=None, protocol=None):
+        """ returns a "human-readable" version of the given protocol """
+        if protocol == "xmpp":
+        	return "XMPP (eXtensible Messaging and Presence Protocol)"
+    #}}}
+    #{{{ new_fingerprint
+    def new_fingerprint(
+        self, opdata=None, userstate=None, accountname=None,
+        protocol=None, username=None, fingerprint=None):
+        
+        human_fingerprint = ""
+        try:
+            human_fingerprint = otr.otrl_privkey_hash_to_human(fingerprint)
+            print "New Fingerprint"
+            #write_message(our_account=accountname, proto=protocol, contact=username,
+            #   message="New fingerprint: %s"%human_fingerprint)
+            return human_fingerprint
+        except:
+            pass
+    #}}}
+    #{{{ write_fingerprints
+    def write_fingerprints(self, opdata=None):
+        fpath = os.path.expanduser(otr_basedir + '/' + otr_fingerprints)
+        if chatServer:
+            otr.otrl_privkey_write_fingerprints(
+                chatServer._otr_userstate, fpath)
+        else:
+            print "chatServer not connected"
+    #}}}
+    #{{{ gone_secure
+    def gone_secure(self, opdata=None, context=None):
+        trust = context.active_fingerprint.trust
+        if trust:
+           trust = "verified"
+        else:
+           trust = "unverified"
+
+        print "%s secured OTR connection started with "%trust
+       #write_message(our_account=accountname, proto=protocol, contact=username,
+       #    "%s secured OTR connection started"%trust)
+    #}}}
+    #{{{ gone_insecure
+    def gone_insecure(self, opdata=None, context=None):
+        print "Secured OTR connection with %s has stopped" % contact
+        #write_message(our_account=accountname, proto=protocol, contact=username,
+        #   "secured OTR connection stopped")
+    #}}}
+    #{{{ still_secure
+    def still_secure(self, opdata=None, context=None, is_reply=0):
+        # this is called when the OTR session was refreshed
+        # (ie. new session keys have been created)
+        # is_reply will be 0 when we started we started that refresh, 
+        #   1 when the contact started it
+
+        #write_message(our_account=accountname, proto=protocol, contact=username,
+        #   "secured OTR connection refreshed")
+        print "Secured OTR connection refreshed"
+    #}}}
+    #{{{ log_message
+    def log_message(self, opdata=None, message=None):
+        # log message to a logfile or something
+        pass
+    #}}}
+    #{{{ max_message_size
+    def max_message_size(self, opdata=None, context=None):
+        """ looks up the max_message_size for the relevant protocol """
+        # return 0 when no limit is defined
+        #return msg_size[context.protocol]
+        return 0
+    #}}}
+    #{{{ account_name
+    def account_name(
+        self, opdata=None, account=None, context=None, protocol=None):
+
+        #return find_account(accountname=account, protocol).name
+        if chatServer:
+            return chatServer._jid
+        else:
+            print "Could not get account name"
+    #}}}
+#}}}
 #{{{ class VimChat
 class VimChat(threading.Thread):
     #Vim Executable to use
@@ -101,6 +255,7 @@ class VimChat(threading.Thread):
     _rosterFile = '/tmp/vimChatRoster'
     _roster = {}
     buddyListBuffer = None
+    _otr = ""
 
     #{{{ __init__
     def __init__(self, jid, jabberClient, roster, callbacks):
@@ -110,6 +265,7 @@ class VimChat(threading.Thread):
         self._roster = roster
         threading.Thread.__init__ ( self )
         self.jabber = jabberClient
+        self._protocol = 'xmpp'
     #}}}
     #{{{ run
     def run(self):
@@ -121,6 +277,9 @@ class VimChat(threading.Thread):
         self.xmppS = self.jabber.Connection._sock
         socketlist = [self.xmppS]
         online = 1
+
+        #set up otr
+        self.otrSetup()
 
 
         while online:
@@ -180,7 +339,16 @@ class VimChat(threading.Thread):
             fromJid = str(msg.getFrom())
             body = str(msg.getBody())
 
-            self._recievedMessage(fromJid, body)
+            if pyotr_enabled:
+                #OTR Stuff
+                is_internal, message, tlvs = otr.otrl_message_receiving(
+                    self._otr_userstate, (
+                        OtrOps(),None),self._jid,self._protocol,fromJid, body)
+
+                if not is_internal and message:
+                    self._recievedMessage(fromJid, message.strip())
+            else:
+                self._recievedMessage(fromJid,body.strip())
     #}}}
     #{{{ jabberPresenceReceive
     def jabberPresenceReceive(self, conn, msg):
@@ -199,6 +367,24 @@ class VimChat(threading.Thread):
     #}}}
 
     #To Jabber Functions
+    #{{{ jabberOnSendMessage
+    def jabberOnSendMessage(self, tojid, msg):
+        msg = msg.strip()
+        if not pyotr_enabled:
+            self.jabberSendMessage(tojid,msg)
+            return 0
+
+        #only if otr is enabled
+        new_message = otr.otrl_message_sending(
+            self._otr_userstate,(OtrOps(),None),
+            self._jid,self._protocol,tojid,msg,None)
+            
+        context = otr.otrl_context_find(
+            self._otr_userstate,tojid,self._jid,self._protocol,1)[0]
+
+        otr.otrl_message_fragment_and_send(
+            (OtrOps(),None),context,new_message,otr.OTRL_FRAGMENT_SEND_ALL)
+    #}}}
     #{{{ jabberSendMessage
     def jabberSendMessage(self, tojid, msg):
         msg = msg.strip()
@@ -229,24 +415,44 @@ class VimChat(threading.Thread):
         else:
             return None
     #}}}
+
+    #OTR Functions
+    #{{{ otrSetup
+    def otrSetup(self):
+        #Set Up OTR Stuff If Available
+        if not pyotr_enabled:
+            return 0
+
+        self._otr_userstate = otr.otrl_userstate_create()
+
+        keypath = os.path.expanduser(otr_basedir + '/' + otr_keyfile)
+
+        #Make the otr directory
+        basedir = os.path.expanduser(otr_basedir)
+        if not os.path.exists(basedir):
+            os.makedirs(basedir)
+
+        if not os.path.isfile(keypath):
+            #Create it if it doesn't exist
+            file(keypath,'w')
+        else:
+            pass
+            if os.access(keypath, os.R_OK):
+                otr.otrl_privkey_read(self._otr_userstate,keypath)
+
+
+        fprintPath = os.path.expanduser(otr_basedir + '/' + otr_fingerprints)
+        if not os.path.isfile(fprintPath):
+            #Create it if it doesn't exist
+            file(fprintPath,'w')
+        else:
+            if os.access(fprintPath, os.R_OK):
+                otr.otrl_privkey_read_fingerprints(
+                    self._otr_userstate,fprintPath)
+    #}}}
 #}}}
 
 #HELPER FUNCTIONS
-#{{{ formatFirstBufferLine
-def formatFirstBufferLine(line,jid=''):
-    tstamp = getTimestamp()
-
-    if jid != '':
-        [jid,user,resource] = getJidParts(jid)
-        return tstamp + user + "/" + resource + ": " + line
-    else:
-        return tstamp + "Me: " + line
-#}}}
-#{{{ formatContinuationBufferLine
-def formatContinuationBufferLine(line):
-    tstamp = getTimestamp()
-    return '\t' + line
-#}}}
 #{{{ formatPresenceUpdateLine
 def formatPresenceUpdateLine(fromJid,show, status):
     tstamp = getTimestamp()
@@ -276,6 +482,13 @@ def getBufByName(name):
         if buf.name and buf.name.split('/')[-1] == name:
             return buf
     return None
+#}}}
+#{{{ moveCursorToBufBottom
+def moveCursorToBufBottom(buf):
+    # Update the cursor.
+    for w in vim.windows:
+        if w.buffer == buf:
+            w.cursor = (len(buf), 0)
 #}}}
 
 #BUDDY LIST
@@ -420,20 +633,32 @@ def vimChatSendBufferShow():
 
 #}}}
 #{{{ vimChatAppendMessage
-def vimChatAppendMessage(buf, message):
+def vimChatAppendMessage(buf, message, jid='Me'):
     if not buf:
         print "VimChat: Invalid Buffer to append to!"
         return 0
 
     lines = message.split("\n")
+    tstamp = getTimestamp()
+
+    jid,user,resource = getJidParts(jid)
 
     #Get the first line
-    line = lines.pop(0);
+    if resource:
+        line = tstamp + user + "/" + resource + ": " + lines.pop(0);
+    else:
+        line = tstamp + user + ": " + lines.pop(0);
+
     buf.append(line)
+    vimChatLog(jid, line)
 
     for line in lines:
         line = '\t' + line
         buf.append(line)
+        vimChatLog(jid, line)
+
+    #move cursor to bottom of buffer
+    moveCursorToBufBottom(buf)
 #}}}
 #{{{ vimChatDeleteChat
 def vimChatDeleteChat():
@@ -512,21 +737,13 @@ def vimChatSendMessage():
     r = vim.current.range
     body = ""
     for line in r:
-        line = line.rstrip('\n')
-        if body == "":
-            bufLine = formatFirstBufferLine(line)
-            chatBuf.append(bufLine)
-            vimChatLog(jid, bufLine)
-        else:
-            bufLine = formatContinuationBufferLine(line)
-            chatBuf.append(bufLine)
-            vimChatLog(jid, bufLine)
         body = body + line + '\n'
 
+    body = body.strip()
+    vimChatAppendMessage(chatBuf,body)
 
     global chatServer
-    chatServer.jabberSendMessage(toJid, body)
-
+    chatServer.jabberOnSendMessage(toJid, body)
 
     vim.command('hide')
     vim.command('sbuffer ' + str(chatBuf.number))
@@ -576,7 +793,7 @@ def vimChatSignOn():
     chatServer = VimChat(jid, jabberClient, roster, callbacks)
     chatServer.start()
 
-    print "Connected with VimChat (" + jid + ")"
+    #print "Connected with VimChat (" + jid + ")"
 
     vimChatToggleBuddyList()
     
@@ -611,6 +828,7 @@ def vimChatPresenceUpdate(fromJid, show, status, priority):
             statusUpdateLine = formatPresenceUpdateLine(fullJid,show,status)
             if chatBuf[-1] != statusUpdateLine:
                 chatBuf.append(statusUpdateLine)
+                moveCursorToBufBottom(chatBuf)
         else:
             #Should never get here!
             print "Buffer did not exist for: " + fromJid
@@ -632,23 +850,13 @@ def vimChatMessageReceived(fromJid, message):
 
     buf = vimChatBeginChat(jid)
 
-    fullMessage = formatFirstBufferLine(message,fromJid)
-
-    # Log the message.
-    vimChatLog(jid, fullMessage)
-
     # Append message to the buffer.
-    vimChatAppendMessage(buf, fullMessage)
+    vimChatAppendMessage(buf, message, fromJid)
 
     # Highlight the line.
     # TODO: This only works if the right window has focus.  Otherwise it
     # highlights the wrong lines.
     # vim.command("call matchadd('Error', '\%' . line('$') . 'l')")
-
-    # Update the cursor.
-    for w in vim.windows:
-        if w.buffer == buf:
-            w.cursor = (len(buf), 0)
 
     # Notify
     print "Message Received from: " + jid
