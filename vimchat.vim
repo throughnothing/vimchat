@@ -14,6 +14,8 @@
 "   g:vimchat_buddylistwidth = width of buddy list
 "   g:vimchat_logpath = path to store log files
 "   g:vimchat_logchats = (0 or 1) default is 1
+"   g:vimchat_otr = (0 or 1) default is 1
+"   g:vimchat_logotr = (0 or 1) default is 1
 "
 
 "{{{ Vim Commands
@@ -46,6 +48,12 @@ fu! VimChatCheckVars()
     if !exists('g:vimchat_logchats')
         let g:vimchat_logchats=1
     endif
+    if !exists('g:vimchat_otr')
+        let g:vimchat_otr=1
+    endif
+    if !exists('g:vimchat_logotr')
+        let g:vimchat_logotr=1
+    endif
 
     return 1
 endfu
@@ -73,9 +81,11 @@ except:
 
 try:
     import otr
+    pyotr_logging = True
     pyotr_enabled = True
 except:
     pyotr_enabled = False
+    pyotr_logging = false
 
 #Global Variables
 chats = {}
@@ -194,10 +204,9 @@ class OtrOps:
     def gone_insecure(self, opdata=None, context=None):
         buf = getBufByName(chats[context.username])
         if buf:
-            jid = "[OTR]"
             vimChatAppendStatusMessage(buf,"[OTR]",
-                "-- Secured OTR Connection Ended",jid)
-            print "Secure OTR Connection Ended with " + str(context.username)
+                "-- Secured OTR Connection Ended")
+            print "Secure OTR Connection Ended with " + context.username
     #}}}
     #{{{ still_secure
     def still_secure(self, opdata=None, context=None, is_reply=0):
@@ -603,6 +612,18 @@ class VimChat(threading.Thread):
             self._otr_userstate,jid,self._jids,self._protocol,1)[0]
         otr.otrl_context_set_trust(context.active_fingerprint,trust)
     #}}}
+    #{{{ otrIsChatEncrypted
+    def otrIsChatEncrypted(self, jid):
+        context = otr.otrl_context_find(
+            chatServer._otr_userstate,jid,
+            chatServer._jids,chatServer._protocol,1)[0]
+
+        if context.msgstate == otr.OTRL_MSGSTATE_ENCRYPTED:
+            return True
+        else:
+            return False
+    #}}}
+        
 #}}}
 
 #HELPER FUNCTIONS
@@ -805,17 +826,21 @@ def vimChatAppendMessage(buf, message, showJid='Me',secure=False):
 
     #Get the first line
     if resource:
-        line = tstamp + secureString + user + "/" + resource + ": " + lines.pop(0);
+        line = tstamp + secureString + \
+            user + "/" + resource + ": " + lines.pop(0);
     else:
         line = tstamp + secureString + user + ": " + lines.pop(0);
 
     buf.append(line)
-    vimChatLog(logJid, line)
+    if not secure or pyotr_logging:
+        vimChatLog(logJid, line)
 
     for line in lines:
         line = '\t' + line
         buf.append(line)
-        vimChatLog(logJid, line)
+        #if message is not secure, or if otr logging is on
+        if not secure or pyotr_logging:
+            vimChatLog(logJid, line)
 
     #move cursor to bottom of buffer
     #moveCursorToBufBottom(buf)
@@ -850,7 +875,9 @@ def vimChatAppendStatusMessage(buf, prefix, message):
 def vimChatDeleteChat():
     #remove it from chats list
     jid = vim.eval('b:buddyId')
-    chatServer.otrDisconnectChat(jid)
+
+    if pyotr_enabled:
+        chatServer.otrDisconnectChat(jid)
 
     del chats[vim.current.buffer.name.split('/')[-1]]
     vim.command('bdelete!')
@@ -927,10 +954,19 @@ def vimChatSendMessage():
         body = body + line + '\n'
 
     body = body.strip()
-    vimChatAppendMessage(chatBuf,body)
 
     global chatServer
     chatServer.jabberOnSendMessage(toJid, body)
+    
+    secure = False
+
+    if pyotr_enabled:
+        secure = chatServer.otrIsChatEncrypted(toJid)
+        if secure:
+            secure = "e"
+
+    vimChatAppendMessage(chatBuf,body,'Me',secure)
+
 
     vim.command('hide')
     vim.command('sbuffer ' + str(chatBuf.number))
@@ -976,6 +1012,19 @@ def vimChatSignOn():
     callbacks = {
         'message':vimChatMessageReceived,
         'presence':vimChatPresenceUpdate}
+
+
+    #Check if otr is enabled
+    global pyotr_enabled
+    global pyotr_logging
+
+    enable_otr = int(vim.eval('g:vimchat_otr'))
+    if enable_otr == 0:
+        pyotr_enabled = False
+
+    log_otr = int(vim.eval('g:vimchat_logotr'))
+    if log_otr == 0:
+        pyotr_logging = False
 
     chatServer = VimChat(jid, jabberClient, roster, callbacks)
     chatServer.start()
@@ -1055,6 +1104,9 @@ def vimChatMessageReceived(fromJid, message, secure=False):
 #OTR
 #{{{ vimChatVerifyBuddy
 def vimChatVerifyBuddy():
+    if not pyotr_enabled:
+        return 0
+
     jid = vim.eval('b:buddyId')
     response = str(vim.eval('input("Verify ' + jid + \
         ' (1:manual, 2:Question/Answer): ")'))
@@ -1073,6 +1125,9 @@ def vimChatVerifyBuddy():
 #}}}
 #{{{ vimChatGenerateOTRKey
 def vimChatGenerateOTRKey():
+    if not pyotr_enabled:
+        return 0
+
     prompt = """Generate OTR key now (can take a while)? (y/n): """
 
     response = str(vim.eval("input('"+prompt+"')")).lower()
@@ -1085,6 +1140,9 @@ def vimChatGenerateOTRKey():
 #}}}
 #{{{ vimChatSMPRequestNotify
 def vimChatSMPRequestNotify(jid, question):
+    if not pyotr_enabled:
+        return 0
+
     buf = vimChatBeginChat(jid)
     if buf:
         message = "-- OTR Verification Request received!  " + \
@@ -1094,6 +1152,9 @@ def vimChatSMPRequestNotify(jid, question):
 #}}}
 #{{{ vimChatSMPRespond
 def vimChatSMPRespond():
+    if not pyotr_enabled:
+        return 0
+
     jid = vim.eval('b:buddyId')
     response = str(vim.eval(
             "inputsecret('Answer to "+ jid +": ')")).lower() 
