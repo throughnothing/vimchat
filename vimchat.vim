@@ -408,9 +408,9 @@ class VimChat(threading.Thread):
                     if context.active_fingerprint:
                         trust = context.active_fingerprint.trust
                         if trust:
-                            secure = "Verified"
+                            secure = "V"
                         else:
-                            secure = "Unverified"
+                            secure = "U"
 
                 if not is_internal:
                     self._recievedMessage(fromJid, message.strip(),secure)
