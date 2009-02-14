@@ -190,9 +190,9 @@ class OtrOps:
     def gone_secure(self, opdata=None, context=None):
         trust = context.active_fingerprint.trust
         if trust:
-           trust = "Verified"
+           trust = "V"
         else:
-           trust = "Unverified"
+           trust = "U"
         
         buf = vimChatBeginChat(context.username)
         if buf:
