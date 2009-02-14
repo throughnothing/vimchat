@@ -15,31 +15,18 @@
 "   g:vimchat_logpath = path to store log files
 "   g:vimchat_logchats = (0 or 1) default is 1
 "
-"
 
-
+"{{{ Vim Commands
 if exists('g:vimchat_loaded')
     finish
 endif
 let g:vimchat_loaded = 1
 
-
-"Vim Commands
-"{{{ Vim Commands
 com! VimChat py vimChatSignOn()
 com! VimChatSignOn py vimChatSignOn()
 com! VimChatSignOff py vimChatSignOff()
-
-"Connect to jabber
-map <Leader>vcc :silent py vimChatSignOn()<CR>
-"Disconnect from jabber
-map <Leader>vcd :silent py vimChatSignOff()<CR>
-
 set switchbuf=usetab
 "}}}
-
-
-"Vim Functions
 "{{{ VimChatCheckVars
 fu! VimChatCheckVars()
     if !exists('g:vimchat_jid')
@@ -71,9 +58,7 @@ function! VimChatFoldText()
 endfunction
 "}}}
 
-""""""""""Python Stuff""""""""""""""
 python <<EOF
-#Imports/Global Vars
 #{{{ imports/global vars
 import os, os.path, select, threading, vim, xmpp
 from datetime import time
@@ -116,19 +101,13 @@ class OtrOps:
     def create_privkey(self, opdata=None, accountname=None, protocol=None):
         # should give the user some visual feedback here, generating can take some time!
         # the private key MUST be available when this method returned
-        print "No OTR private key found!  Generating now (this may take some time)...."
-        
-        keypath = os.path.expanduser(otr_basedir + '/' + otr_keyfile)
-        if chatServer:
-            otr.otrl_privkey_generate(
-                chatServer._otr_userstate, keypath, accountname, protocol)
-        else:
-            print "Error in create_privkey"
+        print "need key for: " + accountname
+        vimChatGenerateOTRKey() 
     #}}}
     #{{{ is_logged_in
     def is_logged_in(self, opdata=None, accountname=None, protocol=None, recipient=None):
         if recipient and chatServer:
-            chatServer._roster.getPriority(recipient)
+            priority = chatServer._roster.getPriority(recipient)
             if priority:
                 return True
             return False
@@ -148,7 +127,8 @@ class OtrOps:
         # show a small dialog or something like that
         # level is otr.OTRL_NOTIFY_ERROR, otr.OTRL_NOTIFY_WARNING or otr.OTRL_NOTIFY_INFO
         # primary and secondary are the messages that should be displayed
-        pass
+        print "Notify: title: " + title + " primary: " + primary + \
+            " secondary: " + secondary
     #}}}
     #{{{ display_otr_message
     def display_otr_message(self, opdata=None, accountname=None, protocol=None, username=None, msg=None):
@@ -159,7 +139,7 @@ class OtrOps:
         # OR non-zero, the message will then be passed to notify() by OTR
         return 0
     #}}}
-    #{{{ update_context_lis
+    #{{{ update_context_list
     def update_context_list(self, opdata=None):
         # this method may provide some visual feedback when the context list was updated
         # this may be useful if you have a central way of setting fingerprints' trusts
@@ -204,11 +184,12 @@ class OtrOps:
         else:
            trust = "Unverified"
         
-        buf = getBufByName(chats[context.username])
+        buf = vimChatBeginChat(context.username)
         if buf:
             message = ""
             jid = "[OTR]"
-            vimChatAppendMessage(buf,"-- " + trust + " OTR Connection Started")
+            vimChatAppendMessage(
+                buf,"-- " + trust + " OTR Connection Started", jid)
             print trust+" OTR Connection Started with "+str(context.username)
     #}}}
     #{{{ gone_insecure
@@ -217,7 +198,7 @@ class OtrOps:
         if buf:
             message = ""
             jid = "[OTR]"
-            vimChatAppendMessage(buf,"-- Secured OTR Connection Ended")
+            vimChatAppendMessage(buf,"-- Secured OTR Connection Ended",jid)
     #}}}
     #{{{ still_secure
     def still_secure(self, opdata=None, context=None, is_reply=0):
@@ -230,7 +211,7 @@ class OtrOps:
         if buf:
             message = ""
             jid = "[OTR]"
-            vimChatAppendMessage(buf,"-- Secured OTR Connection Ended")
+            vimChatAppendMessage(buf,"-- Secured OTR Connection Ended",jid)
     #}}}
     #{{{ log_message
     def log_message(self, opdata=None, message=None):
@@ -250,23 +231,26 @@ class OtrOps:
 
         #return find_account(accountname=account, protocol).name
         if chatServer:
-            return chatServer._jid
+            jid = chatServer._jid.split('/')[0]
+            print "accountname: " + jid
+            return jid
         else:
             print "Could not get account name"
     #}}}
 #}}}
 #{{{ class VimChat
 class VimChat(threading.Thread):
-    #Vim Executable to use
-    _vim = 'vim'
+    #{{{ class Variables
     _rosterFile = '/tmp/vimChatRoster'
     _roster = {}
     buddyListBuffer = None
     _otr = ""
+    #}}} 
 
     #{{{ __init__
     def __init__(self, jid, jabberClient, roster, callbacks):
         self._jid = jid
+        self._jids = jid.split('/')[0]
         self._recievedMessage = callbacks['message']
         self._presenceCallback = callbacks['presence']
         self._roster = roster
@@ -351,14 +335,17 @@ class VimChat(threading.Thread):
                 #OTR Stuff
                 is_internal, message, tlvs = otr.otrl_message_receiving(
                     self._otr_userstate, (
-                        OtrOps(),None),self._jid,self._protocol,jid, body)
+                        OtrOps(),None),self._jids,self._protocol,jid, body)
 
                 context = otr.otrl_context_find(
-                    self._otr_userstate,jid,self._jid,self._protocol,1)[0]
+                    self._otr_userstate,jid,self._jids,self._protocol,1)[0]
 
                 secure = False
                 type = otr.otrl_proto_message_type(body)
-                if type == otr.OTRL_MSGTYPE_DATA:
+                if type == otr.OTRL_MSGTYPE_DATA \
+                    and type != otr.OTRL_MSGTYPE_NOTOTR \
+                    and type != otr.OTRL_MSGTYPE_TAGGEDPLAINTEXT:
+
                     if context.active_fingerprint:
                         trust = context.active_fingerprint.trust
                         if trust:
@@ -366,7 +353,7 @@ class VimChat(threading.Thread):
                         else:
                             secure = "Unverified"
 
-                if not is_internal and message:
+                if not is_internal:
                     self._recievedMessage(fromJid, message.strip(),secure)
             else:
                 self._recievedMessage(fromJid,body.strip())
@@ -398,12 +385,12 @@ class VimChat(threading.Thread):
         #only if otr is enabled
         new_message = otr.otrl_message_sending(
             self._otr_userstate,(OtrOps(),None),
-            self._jid,self._protocol,tojid,msg,None)
+            self._jids,self._protocol,tojid,msg,None)
             
         context = otr.otrl_context_find(
-            self._otr_userstate,tojid,self._jid,self._protocol,1)[0]
+            self._otr_userstate,tojid,self._jids,self._protocol,1)[0]
 
-        context.msgstate == otr.OTRL_MSGSTATE_ENCRYPTED
+        #if context.msgstate == otr.OTRL_MSGSTATE_ENCRYPTED
         otr.otrl_message_fragment_and_send(
             (OtrOps(),None),context,new_message,otr.OTRL_FRAGMENT_SEND_ALL)
     #}}}
@@ -457,10 +444,18 @@ class VimChat(threading.Thread):
         if not os.path.isfile(keypath):
             #Create it if it doesn't exist
             file(keypath,'w')
+            jid = self._jid.split('/')[0]
+
+            print "Generating OTR private key (may take a while)...."
+            otr.otrl_privkey_generate(
+                self._otr_userstate, keypath, jid, self._protocol)
         else:
             pass
             if os.access(keypath, os.R_OK):
-                otr.otrl_privkey_read(self._otr_userstate,keypath)
+                try:
+                    otr.otrl_privkey_read(self._otr_userstate,keypath)
+                except:
+                    pass
 
 
         fprintPath = os.path.expanduser(otr_basedir + '/' + otr_fingerprints)
@@ -469,10 +464,46 @@ class VimChat(threading.Thread):
             file(fprintPath,'w')
         else:
             if os.access(fprintPath, os.R_OK):
-                otr.otrl_privkey_read_fingerprints(
-                    self._otr_userstate,fprintPath)
+                try:
+                    otr.otrl_privkey_read_fingerprints(
+                        self._otr_userstate,fprintPath)
+                except:
+                    pass
     #}}}
+    #{{{ otrDisconnectChat
+    def otrDisconnectChat(self, jid):
+        context = otr.otrl_context_find(
+            self._otr_userstate,jid,self._jids,self._protocol,1)[0]
 
+        if context.msgstate == otr.OTRL_MSGSTATE_ENCRYPTED:
+            otr.otrl_message_disconnect(
+                self._otr_userstate,(OtrOps(),None),
+                self._jids,self._protocol,jid)
+    #}}}
+    #{{{ otrManualVerifyBuddy
+    def otrManualVerifyBuddy(self, jid):
+        context = otr.otrl_context_find(
+            self._otr_userstate,jid,self._jids,self._protocol,1)[0]
+
+        otr.otrl_context_set_trust(context.active_fingerprint,"verified")
+
+        buf = vimChatBeginChat(jid)
+        if buf:
+            message = ""
+            vimChatAppendMessage(
+                buf,"-- Verified Fingerprint of " + jid, "[OTR]")
+            print "Verified "+str(context.username)
+
+            fprintPath = os.path.expanduser(
+                otr_basedir + '/' + otr_fingerprints)
+    #}}}
+    #{{{ otrGeneratePrivateKey
+    def otrGeneratePrivateKey(self):
+        keypath = os.path.expanduser(otr_basedir + '/' + otr_keyfile)
+        jid = self._jid.split('/')[0]
+        otr.otrl_privkey_generate(
+            self._otr_userstate, keypath, jid, self._protocol)
+    #}}}
 #}}}
 
 #HELPER FUNCTIONS
@@ -623,6 +654,7 @@ def vimChatSetupChatBuffer():
     nnoremap <buffer> <silent> B :py vimChatToggleBuddyList()<CR>
     nnoremap <buffer> <silent> q :py vimChatDeleteChat()<CR>
     nnoremap <buffer> <silent> L :py vimChatOpenLogFromChat()<CR>
+    nnoremap <buffer> <silent> <Leader>ov :py vimChatVerifyBuddy()<CR>
     """
     #au BufLeave <buffer> call clearmatches()
     vim.command(commands)
@@ -690,6 +722,9 @@ def vimChatAppendMessage(buf, message, jid='Me',secure=False):
 #{{{ vimChatDeleteChat
 def vimChatDeleteChat():
     #remove it from chats list
+    jid = vim.eval('b:buddyId')
+    chatServer.otrDisconnectChat(jid)
+
     del chats[vim.current.buffer.name.split('/')[-1]]
     vim.command('bdelete!')
 #}}}
@@ -818,7 +853,7 @@ def vimChatSignOn():
     chatServer = VimChat(jid, jabberClient, roster, callbacks)
     chatServer.start()
 
-    #print "Connected with VimChat (" + jid + ")"
+    print "Connected with VimChat (" + jid + ")"
 
     vimChatToggleBuddyList()
     
@@ -888,6 +923,36 @@ def vimChatMessageReceived(fromJid, message, secure=False):
     # Notify
     print "Message Received from: " + jid
     vimChatNotify(user + ' says:', message, 'dialog-warning')
+#}}}
+
+#OTR
+#{{{ vimChatVerifyBuddy
+def vimChatVerifyBuddy():
+    jid = vim.eval('b:buddyId')
+    response = str(vim.eval('input("Verify ' + jid + \
+        ' (1:manual, 2:Question/Answer): ")'))
+    if response == "1":
+        response2 = str(vim.eval("input('Verify buddy? (y/n): ')")).lower()
+        if response2 == "y":
+            chatServer.otrManualVerifyBuddy(jid)
+        else:
+            print "Verify Aborted."
+    elif response == "0":
+        question = vim.eval('input("Enter Your Question: ")')
+    else:
+        print "Invalid Response."
+#}}}
+#{{{ vimChatGenerateOTRKey
+def vimChatGenerateOTRKey():
+    prompt = """Generate OTR key now (can take a while)? (y/n): """
+
+    response = str(vim.eval("input('"+prompt+"')")).lower()
+    if response == "y":
+        print "Generating Key (please bear with us)..."
+        chatServer.otrGeneratePrivateKey()
+        print "Generated OTR Key!"
+    else:
+        print "Not Generating Key Now."
 #}}}
 
 EOF
