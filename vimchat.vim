@@ -186,7 +186,6 @@ class OtrOps:
         
         buf = vimChatBeginChat(context.username)
         if buf:
-            message = ""
             jid = "[OTR]"
             vimChatAppendMessage(
                 buf,"-- " + trust + " OTR Connection Started", jid)
@@ -196,9 +195,9 @@ class OtrOps:
     def gone_insecure(self, opdata=None, context=None):
         buf = getBufByName(chats[context.username])
         if buf:
-            message = ""
             jid = "[OTR]"
             vimChatAppendMessage(buf,"-- Secured OTR Connection Ended",jid)
+            print "Secure OTR Connection Ended with " + str(context.username)
     #}}}
     #{{{ still_secure
     def still_secure(self, opdata=None, context=None, is_reply=0):
@@ -206,12 +205,12 @@ class OtrOps:
         # (ie. new session keys have been created)
         # is_reply will be 0 when we started we started that refresh, 
         #   1 when the contact started it
-
+        
         buf = getBufByName(chats[context.username])
         if buf:
-            message = ""
             jid = "[OTR]"
-            vimChatAppendMessage(buf,"-- Secured OTR Connection Ended",jid)
+            vimChatAppendMessage(buf,"-- Secured OTR Connection Refreshed",jid)
+            print "Secure OTR Connection Refreshed with "+str(context.username)
     #}}}
     #{{{ log_message
     def log_message(self, opdata=None, message=None):
@@ -240,6 +239,7 @@ class OtrOps:
 #}}}
 #{{{ class VimChat
 class VimChat(threading.Thread):
+
     #{{{ class Variables
     _rosterFile = '/tmp/vimChatRoster'
     _roster = {}
@@ -247,6 +247,7 @@ class VimChat(threading.Thread):
     _otr = ""
     #}}} 
 
+    #Init Stuff
     #{{{ __init__
     def __init__(self, jid, jabberClient, roster, callbacks):
         self._jid = jid
@@ -339,6 +340,54 @@ class VimChat(threading.Thread):
 
                 context = otr.otrl_context_find(
                     self._otr_userstate,jid,self._jids,self._protocol,1)[0]
+
+
+                #{{{ Check for verification stuff
+                
+                if otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP_ABORT) is not None:
+                    self.otrAbortVerify(context)
+                elif otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP1) is not None:
+                    if context.smstate.nextExpected != otr.OTRL_SMP_EXPECT1:
+                        self.otrAbortVerify(context)
+                    else:
+                        #TODO: prompt user for secret
+                        pass
+                elif otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP1Q) is not None:
+                    if context.smstate.nextExpected != otr.OTRL_SMP_EXPECT1:
+                        self.otrAbortVerify(context)
+                    else:
+                        #TODO: prompt user for secret with question
+                        tlv = otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP1Q)
+                        vimChatSMPRequestNotify(context.username,tlv.data)
+                elif otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP2) is not None:
+                    if context.smstate.nextExpected != otr.OTRL_SMP_EXPECT2:
+                        self.otrAbortVerify(context)
+                    else:
+                        context.smstate.nextExpected = otr.OTRL_SMP_EXPECT4
+                elif otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP3) is not None:
+                    if context.smstate.nextExpected != otr.OTRL_SMP_EXPECT3:
+                        self.otrAbortVerify(context)
+                    else:
+                        if context.smstate.sm_prog_state == \
+                            otr.OTRL_SMP_PROG_SUCCEEDED:
+                            self.otrSMPVerifySuccess(context)
+                            print "Successfully verified " + context.username
+                        else:
+                            self.otrSMPVerifyFailed(context)
+                            print "Failed to verify " + context.username
+                elif otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP4) is not None:
+                    if context.smstate.nextExpected != otr.OTRL_SMP_EXPECT4:
+                        self.otrAbortVerify(context)    
+                    else:
+                        context.smstate.nextExpected = otr.OTRL_SMP_EXPECT1
+                        if context.smstate.sm_prog_state == \
+                            otr.OTRL_SMP_PROG_SUCCEEDED:
+                            self.otrSMPVerifySuccess(context)
+                            print "Successfully verified " + context.username
+                        else:
+                            self.otrSMPVerifyFailed(context)
+                            print "Failed to verify " + context.username
+                #}}}
 
                 secure = False
                 type = otr.otrl_proto_message_type(body)
@@ -482,20 +531,60 @@ class VimChat(threading.Thread):
     #}}}
     #{{{ otrManualVerifyBuddy
     def otrManualVerifyBuddy(self, jid):
-        context = otr.otrl_context_find(
-            self._otr_userstate,jid,self._jids,self._protocol,1)[0]
-
-        otr.otrl_context_set_trust(context.active_fingerprint,"verified")
-
+        self.otrSetTrust(jid,"manual")
         buf = vimChatBeginChat(jid)
         if buf:
-            message = ""
             vimChatAppendMessage(
                 buf,"-- Verified Fingerprint of " + jid, "[OTR]")
             print "Verified "+str(context.username)
+    #}}}
+    #{{{ otrSMPVerifyBuddy
+    def otrSMPVerifyBuddy(self, jid, question, secret):
+        context = otr.otrl_context_find(
+            self._otr_userstate,jid,self._jids,self._protocol,1)[0]
 
-            fprintPath = os.path.expanduser(
-                otr_basedir + '/' + otr_fingerprints)
+        otr.otrl_message_initiate_smp_q(
+            self._otr_userstate,(OtrOps(), None),context,question,secret)
+
+        buf = vimChatBeginChat(jid)
+        if buf:
+            vimChatAppendMessage(
+                buf,"-- Sent Question to "+ jid +" for verification.", "[OTR]")
+            print "Sent Question for verification to "+str(context.username)
+    #}}}
+    #{{{ otrSMPVerifySuccess
+    def otrSMPVerifySuccess(self,context):
+        jid = context.username
+        self.otrSetTrust(jid,"smp") 
+        buf = vimChatBeginChat(jid)
+        if buf:
+            vimChatAppendMessage(
+                buf,"-- Secret answered! "+ jid +" is verified.", "[OTR]")
+            print jid + " Gave correct secret -- verified!"
+    #}}}
+    #{{{ otrSMPVerifyFailed
+    def otrSMPVerifyFailed(self,context):
+        jid = context.username
+        self.otrSetTrust(jid,"") 
+        buf = vimChatBeginChat(jid)
+        if buf:
+            vimChatAppendMessage(
+                buf,"-- Secret response Failed! "+ jid + \
+                " is NOT verified.", "[OTR]")
+            print jid + " Failed to answer secret, NOT verified!"
+    #}}}
+    #{{{ otrSMPRespond
+    def otrSMPRespond(self,jid,secret):
+        context = otr.otrl_context_find(
+            self._otr_userstate,jid,self._jids,self._protocol,1)[0]
+
+        otr.otrl_message_respond_smp(
+            self._otr_userstate,(OtrOps(),None),context,secret)
+        buf = vimChatBeginChat(jid)
+        if buf:
+            vimChatAppendMessage(
+                buf,"-- Sent Secret to "+ jid +"", "[OTR]")
+            print "Sent secret response to " + jid
     #}}}
     #{{{ otrGeneratePrivateKey
     def otrGeneratePrivateKey(self):
@@ -503,6 +592,17 @@ class VimChat(threading.Thread):
         jid = self._jid.split('/')[0]
         otr.otrl_privkey_generate(
             self._otr_userstate, keypath, jid, self._protocol)
+    #}}}
+    #{{{ otrAbortVerify
+    def otrAbortVerify(self,context):
+        otr.otrl_message_abort_smp(
+            self._otr_userstate, (OtrOps(), None), context)
+    #}}}
+    #{{{ otrSetTrust
+    def otrSetTrust(self, jid, trust):
+        context = otr.otrl_context_find(
+            self._otr_userstate,jid,self._jids,self._protocol,1)[0]
+        otr.otrl_context_set_trust(context.active_fingerprint,trust)
     #}}}
 #}}}
 
@@ -655,6 +755,7 @@ def vimChatSetupChatBuffer():
     nnoremap <buffer> <silent> q :py vimChatDeleteChat()<CR>
     nnoremap <buffer> <silent> L :py vimChatOpenLogFromChat()<CR>
     nnoremap <buffer> <silent> <Leader>ov :py vimChatVerifyBuddy()<CR>
+    nnoremap <buffer> <silent> <Leader>or :py vimChatSMPRespond()<CR>
     """
     #au BufLeave <buffer> call clearmatches()
     vim.command(commands)
@@ -937,8 +1038,10 @@ def vimChatVerifyBuddy():
             chatServer.otrManualVerifyBuddy(jid)
         else:
             print "Verify Aborted."
-    elif response == "0":
+    elif response == "2":
         question = vim.eval('input("Enter Your Question: ")')
+        secret = vim.eval('inputsecret("Enter your secret answer: ")')
+        chatServer.otrSMPVerifyBuddy(jid,question,secret)
     else:
         print "Invalid Response."
 #}}}
@@ -953,6 +1056,22 @@ def vimChatGenerateOTRKey():
         print "Generated OTR Key!"
     else:
         print "Not Generating Key Now."
+#}}}
+#{{{ vimChatSMPRequestNotify
+def vimChatSMPRequestNotify(jid, question):
+    buf = vimChatBeginChat(jid)
+    if buf:
+        message = "-- OTR Verification Request received!  " + \
+            "Press <Leader>or to answer the question below:\n" + question
+        vimChatAppendMessage(buf,message, "[OTR]")
+        print "OTR Verification Request from " + jid
+#}}}
+#{{{ vimChatSMPRespond
+def vimChatSMPRespond():
+    jid = vim.eval('b:buddyId')
+    response = str(vim.eval(
+            "inputsecret('Answer to "+ jid +": ')")).lower() 
+    chatServer.otrSMPRespond(jid, response) 
 #}}}
 
 EOF
