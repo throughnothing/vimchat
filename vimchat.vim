@@ -85,7 +85,7 @@ try:
     pyotr_enabled = True
 except:
     pyotr_enabled = False
-    pyotr_logging = false
+    pyotr_logging = False
 
 #Global Variables
 chats = {}
