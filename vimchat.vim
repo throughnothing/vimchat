@@ -186,9 +186,8 @@ class OtrOps:
         
         buf = vimChatBeginChat(context.username)
         if buf:
-            jid = "[OTR]"
-            vimChatAppendMessage(
-                buf,"-- " + trust + " OTR Connection Started", jid)
+            vimChatAppendStatusMessage( buf,"[OTR]",
+                "-- " + trust + " OTR Connection Started")
             print trust+" OTR Connection Started with "+str(context.username)
     #}}}
     #{{{ gone_insecure
@@ -196,7 +195,8 @@ class OtrOps:
         buf = getBufByName(chats[context.username])
         if buf:
             jid = "[OTR]"
-            vimChatAppendMessage(buf,"-- Secured OTR Connection Ended",jid)
+            vimChatAppendStatusMessage(buf,"[OTR]",
+                "-- Secured OTR Connection Ended",jid)
             print "Secure OTR Connection Ended with " + str(context.username)
     #}}}
     #{{{ still_secure
@@ -209,7 +209,8 @@ class OtrOps:
         buf = getBufByName(chats[context.username])
         if buf:
             jid = "[OTR]"
-            vimChatAppendMessage(buf,"-- Secured OTR Connection Refreshed",jid)
+            vimChatAppendStatusMessage(buf,"[OTR]",
+                "-- Secured OTR Connection Refreshed")
             print "Secure OTR Connection Refreshed with "+str(context.username)
     #}}}
     #{{{ log_message
@@ -534,8 +535,7 @@ class VimChat(threading.Thread):
         self.otrSetTrust(jid,"manual")
         buf = vimChatBeginChat(jid)
         if buf:
-            vimChatAppendMessage(
-                buf,"-- Verified Fingerprint of " + jid, "[OTR]")
+            vimChatAppendStatusMessage( buf,"[OTR]","-- Verified Fingerprint of " + jid, "[OTR]")
             print "Verified "+str(context.username)
     #}}}
     #{{{ otrSMPVerifyBuddy
@@ -549,7 +549,7 @@ class VimChat(threading.Thread):
         buf = vimChatBeginChat(jid)
         if buf:
             vimChatAppendMessage(
-                buf,"-- Sent Question to "+ jid +" for verification.", "[OTR]")
+                buf,"-- Sent Question to "+ jid +" for verification.")
             print "Sent Question for verification to "+str(context.username)
     #}}}
     #{{{ otrSMPVerifySuccess
@@ -558,8 +558,8 @@ class VimChat(threading.Thread):
         self.otrSetTrust(jid,"smp") 
         buf = vimChatBeginChat(jid)
         if buf:
-            vimChatAppendMessage(
-                buf,"-- Secret answered! "+ jid +" is verified.", "[OTR]")
+            vimChatAppendStatusMessage(buf,"[OTR]",
+                "-- Secret answered! "+ jid +" is verified.")
             print jid + " Gave correct secret -- verified!"
     #}}}
     #{{{ otrSMPVerifyFailed
@@ -568,9 +568,8 @@ class VimChat(threading.Thread):
         self.otrSetTrust(jid,"") 
         buf = vimChatBeginChat(jid)
         if buf:
-            vimChatAppendMessage(
-                buf,"-- Secret response Failed! "+ jid + \
-                " is NOT verified.", "[OTR]")
+            vimChatAppendStatusMessage( buf,"[OTR]",
+                "-- Secret response Failed! "+ jid + " is NOT verified.")
             print jid + " Failed to answer secret, NOT verified!"
     #}}}
     #{{{ otrSMPRespond
@@ -582,8 +581,8 @@ class VimChat(threading.Thread):
             self._otr_userstate,(OtrOps(),None),context,secret)
         buf = vimChatBeginChat(jid)
         if buf:
-            vimChatAppendMessage(
-                buf,"-- Sent Secret to "+ jid +"", "[OTR]")
+            vimChatAppendStatusMessage( buf,"[OTR]",
+                "-- Sent Secret to "+ jid +"")
             print "Sent secret response to " + jid
     #}}}
     #{{{ otrGeneratePrivateKey
@@ -789,7 +788,7 @@ def vimChatSendBufferShow():
 
 #}}}
 #{{{ vimChatAppendMessage
-def vimChatAppendMessage(buf, message, jid='Me',secure=False):
+def vimChatAppendMessage(buf, message, showJid='Me',secure=False):
     if not buf:
         print "VimChat: Invalid Buffer to append to!"
         return 0
@@ -797,7 +796,8 @@ def vimChatAppendMessage(buf, message, jid='Me',secure=False):
     lines = message.split("\n")
     tstamp = getTimestamp()
 
-    jid,user,resource = getJidParts(jid)
+    jid,user,resource = getJidParts(showJid)
+    logJid = buf.name.split('/')[-1]
     
     secureString = ""
     if secure:
@@ -808,6 +808,32 @@ def vimChatAppendMessage(buf, message, jid='Me',secure=False):
         line = tstamp + secureString + user + "/" + resource + ": " + lines.pop(0);
     else:
         line = tstamp + secureString + user + ": " + lines.pop(0);
+
+    buf.append(line)
+    vimChatLog(logJid, line)
+
+    for line in lines:
+        line = '\t' + line
+        buf.append(line)
+        vimChatLog(logJid, line)
+
+    #move cursor to bottom of buffer
+    #moveCursorToBufBottom(buf)
+#}}}
+#{{{ vimChatAppendStatusMessage
+def vimChatAppendStatusMessage(buf, prefix, message):
+    if not buf:
+        print "VimChat: Invalid Buffer to append to!"
+        return 0
+    
+    jid = buf.name.split('/')[-1]
+    jid,user,resource = getJidParts(jid)
+
+    lines = message.split("\n")
+    tstamp = getTimestamp()
+
+    #Get the first line
+    line = tstamp + prefix + ": " + lines.pop(0);
 
     buf.append(line)
     vimChatLog(jid, line)
