@@ -544,8 +544,8 @@ class VimChat(threading.Thread):
         self.otrSetTrust(jid,"manual")
         buf = vimChatBeginChat(jid)
         if buf:
-            vimChatAppendStatusMessage( buf,"[OTR]","-- Verified Fingerprint of " + jid, "[OTR]")
-            print "Verified "+str(context.username)
+            vimChatAppendStatusMessage( buf,"[OTR]","-- Verified Fingerprint of " + jid)
+            print "Verified "+jid
     #}}}
     #{{{ otrSMPVerifyBuddy
     def otrSMPVerifyBuddy(self, jid, question, secret):
