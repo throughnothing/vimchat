@@ -707,8 +707,9 @@ def vimChatToggleBuddyList():
     vim.command("set foldmethod=marker")
     vim.command(
         'nmap <buffer> <silent> <CR> :py vimChatBeginChatFromBuddyList()<CR>')
-    vim.command("nnoremap <buffer> <silent> L :py vimChatOpenLogFromBuddyList()<CR>")
+    vim.command("nnoremap <buffer> <silent> <Leader>l :py vimChatOpenLogFromBuddyList()<CR>")
     vim.command('nnoremap <buffer> B :py vimChatToggleBuddyList()<CR>')
+    vim.command('nnoremap <buffer> q :py vimChatToggleBuddyList()<CR>')
 #}}}
 #{{{ vimChatGetBuddyListItem
 def vimChatGetBuddyListItem(item):
@@ -773,7 +774,7 @@ def vimChatSetupChatBuffer():
     nnoremap <buffer> <silent> a :py vimChatSendBufferShow()<CR>
     nnoremap <buffer> <silent> B :py vimChatToggleBuddyList()<CR>
     nnoremap <buffer> <silent> q :py vimChatDeleteChat()<CR>
-    nnoremap <buffer> <silent> L :py vimChatOpenLogFromChat()<CR>
+    nnoremap <buffer> <silent> <Leader>l :py vimChatOpenLogFromChat()<CR>
     nnoremap <buffer> <silent> <Leader>ov :py vimChatVerifyBuddy()<CR>
     nnoremap <buffer> <silent> <Leader>or :py vimChatSMPRespond()<CR>
     """
