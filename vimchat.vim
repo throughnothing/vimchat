@@ -843,7 +843,7 @@ def vimChatAppendMessage(buf, message, showJid='Me',secure=False):
             vimChatLog(logJid, line)
 
     #move cursor to bottom of buffer
-    #moveCursorToBufBottom(buf)
+    moveCursorToBufBottom(buf)
 #}}}
 #{{{ vimChatAppendStatusMessage
 def vimChatAppendStatusMessage(buf, prefix, message):
@@ -890,7 +890,7 @@ def vimChatNotify(title, msg, type):
     if pynotify_enabled:
         pynotify.init('vimchat')
         n = pynotify.Notification(title, msg, type)
-        n.set_timeout(5000)
+        n.set_timeout(10000)
         n.show()
 #}}}
 
