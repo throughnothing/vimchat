@@ -339,11 +339,14 @@ class VimChat(threading.Thread):
     def jabberMessageReceive(self, conn, msg):
         if msg.getBody():
             fromJid = str(msg.getFrom())
+            type = str(msg.getType()).lower()
             jid = fromJid.split('/')[0]
+            print fromJid
             body = str(msg.getBody())
 
-            if pyotr_enabled:
+            if pyotr_enabled and type != "groupchat":
                 #OTR Stuff
+                #{{{ Check for verification stuff
                 is_internal, message, tlvs = otr.otrl_message_receiving(
                     self._otr_userstate, (
                         OtrOps(),None),self._jids,self._protocol,jid, body)
@@ -352,7 +355,6 @@ class VimChat(threading.Thread):
                     self._otr_userstate,jid,self._jids,self._protocol,1)[0]
 
 
-                #{{{ Check for verification stuff
                 
                 if otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP_ABORT) is not None:
                     self.otrAbortVerify(context)
@@ -414,6 +416,14 @@ class VimChat(threading.Thread):
 
                 if not is_internal:
                     self._recievedMessage(fromJid, message.strip(),secure)
+            elif type == "groupchat":
+                parts = fromJid.split('/')
+                chatroom = parts[0]
+                if len(parts) > 1:
+                    user = parts[1]
+                else:
+                    user = "--"
+                self._recievedMessage(user, body.strip(), False, chatroom)
             else:
                 self._recievedMessage(fromJid,body.strip())
     #}}}
@@ -458,6 +468,21 @@ class VimChat(threading.Thread):
         msg = msg.strip()
         m = xmpp.protocol.Message(to=tojid,body=msg,typ='chat')
         self.jabber.send(m)
+    #}}}
+    #{{{ jabberSendGroupChatMessage
+    def jabberSendGroupChatMessage(self, room, msg):
+        msg = msg.strip()
+        m = xmpp.protocol.Message(to=room,body=msg,typ='groupchat')
+        self.jabber.send(m)
+    #}}}
+    #{{{ jabberJoinGroupChat
+    def jabberJoinGroupChat(self, room, name):
+        roomStr = room + '/' + name
+        self.jabber.send(xmpp.Presence(to=roomStr))
+    #}}}
+    #{{{ jabberLeaveGroupChat
+    def jabberLeaveGroupChat(self, room):
+        self.jabber.send(xmpp.Presence(to=room,typ='unavailable'))
     #}}}
     #{{{ jabberPresenceUpdate
     def jabberPresenceUpdate(self, show, status):
@@ -664,6 +689,17 @@ def moveCursorToBufBottom(buf):
         if w.buffer == buf:
             w.cursor = (len(buf), 0)
 #}}}
+#{{{ isGroupChat
+def isGroupChat():
+    try:
+        groupchat = int(vim.eval('b:groupchat'))
+        if groupchat == 1:
+            return True
+    except:
+        pass
+
+    return False
+#}}}
 
 #BUDDY LIST
 #{{{ vimChatToggleBuddyList
@@ -700,16 +736,20 @@ def vimChatToggleBuddyList():
     except:
         vim.command("tabe " + rosterFile)
 
-    chatServer.buddyListBuffer = vim.current.buffer
 
-    vim.command("setlocal foldtext=VimChatFoldText()")
-    vim.command("set nowrap")
-    vim.command("set foldmethod=marker")
-    vim.command(
-        'nmap <buffer> <silent> <CR> :py vimChatBeginChatFromBuddyList()<CR>')
-    vim.command("nnoremap <buffer> <silent> <Leader>l :py vimChatOpenLogFromBuddyList()<CR>")
-    vim.command('nnoremap <buffer> B :py vimChatToggleBuddyList()<CR>')
-    vim.command('nnoremap <buffer> q :py vimChatToggleBuddyList()<CR>')
+    commands = """
+    setlocal foldtext=VimChatFoldText()
+    set nowrap
+    set foldmethod=marker
+    nmap <buffer> <silent> <CR> :py vimChatBeginChatFromBuddyList()<CR>
+    nnoremap <buffer> <silent> <Leader>l :py vimChatOpenLogFromBuddyList()<CR>
+    nnoremap <buffer> B :py vimChatToggleBuddyList()<CR>
+    nnoremap <buffer> q :py vimChatToggleBuddyList()<CR>
+    nnoremap <buffer> <silent> <Leader>ch :py vimChatOpenChatRoom()<CR>
+    """
+    vim.command(commands)
+
+    chatServer.buddyListBuffer = vim.current.buffer
 #}}}
 #{{{ vimChatGetBuddyListItem
 def vimChatGetBuddyListItem(item):
@@ -740,7 +780,7 @@ def vimChatBeginChatFromBuddyList():
 
 #CHAT BUFFERS
 #{{{ vimChatBeginChat
-def vimChatBeginChat(toJid):
+def vimChatBeginChat(toJid,groupChat = False):
     #Set the ChatFile
     if toJid in chats.keys():
         chatFile = chats[toJid]
@@ -754,6 +794,11 @@ def vimChatBeginChat(toJid):
     else:
         vim.command("split " + chatFile)
         #Only do this stuff if its a new buffer
+        if groupChat:
+            vim.command('let b:groupchat=1')
+        else:
+            vim.command('let b:groupchat=0')
+
         vim.command("let b:buddyId = '" + toJid + "'")
         vimChatSetupChatBuffer();
         return vim.current.buffer
@@ -784,6 +829,7 @@ def vimChatSetupChatBuffer():
 #{{{ vimChatSendBufferShow
 def vimChatSendBufferShow():
     toJid = vim.eval('b:buddyId')
+    groupChat = vim.eval('b:groupchat')
 
     #Create sending buffer
     sendBuffer = "sendTo:" + toJid
@@ -807,6 +853,7 @@ def vimChatSendBufferShow():
     vim.command('normal o')
     vim.command('normal zt')
     vim.command('star')
+    vim.command('let b:groupchat=' + str(groupChat))
 
 #}}}
 #{{{ vimChatAppendMessage
@@ -881,7 +928,22 @@ def vimChatDeleteChat():
         chatServer.otrDisconnectChat(jid)
 
     del chats[vim.current.buffer.name.split('/')[-1]]
+
+    #Check if it was a groupchat
+    if isGroupChat():
+        chatServer.jabberLeaveGroupChat(jid)
     vim.command('bdelete!')
+#}}}
+#{{{ vimChatOpenChatRoom
+def vimChatOpenChatRoom():
+    chatroom = vim.eval('input("Chat Room to join: ")')
+    name = vim.eval('input("Name to Use: ")')
+    buf = vimChatBeginChat(chatroom, True)
+    vim.command('sbuffer ' + str(buf.number))
+    vimChatToggleBuddyList()
+    vim.command('wincmd K')
+
+    chatServer.jabberJoinGroupChat(chatroom, name)
 #}}}
 
 #NOTIFY
@@ -957,7 +1019,10 @@ def vimChatSendMessage():
     body = body.strip()
 
     global chatServer
-    chatServer.jabberOnSendMessage(toJid, body)
+    if isGroupChat():
+        chatServer.jabberSendGroupChatMessage(toJid, body)
+    else:
+        chatServer.jabberOnSendMessage(toJid, body)
     
     secure = False
 
@@ -1074,7 +1139,7 @@ def vimChatPresenceUpdate(fromJid, show, status, priority):
 
 #}}}
 #{{{ vimChatMessageReceived
-def vimChatMessageReceived(fromJid, message, secure=False):
+def vimChatMessageReceived(fromJid, message, secure=False, groupChat=""):
     #Store the buffer we were in
     origBufNum = vim.current.buffer.number
 
@@ -1087,10 +1152,15 @@ def vimChatMessageReceived(fromJid, message, secure=False):
     #Get Jid Parts
     [jid,user,resource] = getJidParts(fromJid)
 
-    buf = vimChatBeginChat(jid)
+    if groupChat == "":
+        buf = vimChatBeginChat(jid)
+        # Append message to the buffer.
+        vimChatAppendMessage(buf, message, fromJid, secure)
+    else:
+        buf = vimChatBeginChat(groupChat)
+        # Append message to the buffer.
+        vimChatAppendMessage(buf, message, fromJid, secure)
 
-    # Append message to the buffer.
-    vimChatAppendMessage(buf, message, fromJid,secure)
 
     # Highlight the line.
     # TODO: This only works if the right window has focus.  Otherwise it
