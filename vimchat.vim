@@ -341,7 +341,6 @@ class VimChat(threading.Thread):
             fromJid = str(msg.getFrom())
             type = str(msg.getType()).lower()
             jid = fromJid.split('/')[0]
-            print fromJid
             body = str(msg.getBody())
 
             if pyotr_enabled and type != "groupchat":
