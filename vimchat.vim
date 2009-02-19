@@ -27,6 +27,15 @@ let g:vimchat_loaded = 1
 com! VimChat py vimChatSignOn()
 com! VimChatSignOn py vimChatSignOn()
 com! VimChatSignOff py vimChatSignOff()
+com! VimChatBuddyList py vimChatToggleBuddyList()
+com! VimChatViewLog py vimChatOpenLogFromChat()
+com! VimChatJoinGroupChat py vimChatOpenGroupChat()
+com! VimChatOtrVerifyBuddy py vimChatOtrVerifyBuddy()
+com! VimChatOtrSMPRespond py vimChatOtrSMPRespond()
+com! VimChatOtrGenerateKey py vimChatOtrGenerateKey()
+com! VimChatSetStatus py vimChatSetStatus()
+com! VimChatShowStatus py vimChatShowStatus()
+
 set switchbuf=usetab
 "}}}
 "{{{ VimChatCheckVars
@@ -89,9 +98,8 @@ except:
 
 #Global Variables
 chats = {}
+presence = ""
 chatServer = ""
-newMessageStack = []
-otr_userstate = ""
 otr_basedir = '~/.vimchat/otr'
 otr_keyfile = 'otrkey'
 otr_fingerprints = 'fingerprints'
@@ -112,7 +120,7 @@ class OtrOps:
         # should give the user some visual feedback here, generating can take some time!
         # the private key MUST be available when this method returned
         print "need key for: " + accountname
-        vimChatGenerateOTRKey() 
+        vimChatOtrGenerateKey() 
     #}}}
     #{{{ is_logged_in
     def is_logged_in(self, opdata=None, accountname=None, protocol=None, recipient=None):
@@ -273,6 +281,7 @@ class VimChat(threading.Thread):
     def run(self):
         self.jabber.RegisterHandler('message',self.jabberMessageReceive)
         self.jabber.RegisterHandler('presence',self.jabberPresenceReceive)
+        self.jabberPresenceUpdate()
 
         #Socket stuff
         RECV_BUF = 4096
@@ -282,7 +291,6 @@ class VimChat(threading.Thread):
 
         #set up otr
         self.otrSetup()
-
 
         while online:
             (i , o, e) = select.select(socketlist,[],[],1)
@@ -429,6 +437,7 @@ class VimChat(threading.Thread):
     #{{{ jabberPresenceReceive
     def jabberPresenceReceive(self, conn, msg):
         fromJid = msg.getFrom()
+        type = str(msg.getType()).lower()
         show = msg.getShow()
         status = msg.getStatus()
         priority = msg.getPriority()
@@ -439,7 +448,17 @@ class VimChat(threading.Thread):
             else:
                 show = 'offline'
 
-        self._presenceCallback(fromJid,show,status,priority)
+        if type == "groupchat":
+            parts = fromJid.split('/')
+            chatroom = parts[0]
+            user = ""
+            if len(parts) > 1:
+                user = parts[1]
+
+            self._presenceCallback(
+                str(chatroom), str(user), show,status,priority)
+        else:
+            self._presenceCallback(str(fromJid), fromJid,show,status,priority)
     #}}}
 
     #To Jabber Functions
@@ -484,12 +503,20 @@ class VimChat(threading.Thread):
         self.jabber.send(xmpp.Presence(to=room,typ='unavailable'))
     #}}}
     #{{{ jabberPresenceUpdate
-    def jabberPresenceUpdate(self, show, status):
+    def jabberPresenceUpdate(self, show='', status='', priority=5):
         m = xmpp.protocol.Presence(
-            self._jid,
+            None,
             show=show,
+            priority=priority,
             status=status)
+        self._presence = m
         self.jabber.send(m)
+    #}}}
+    #{{{ jabberGetPresence
+    def jabberGetPresence(self):
+        show = self._presence.getShow()
+        status = self._presence.getStatus()
+        return [show,status]
     #}}}
     #{{{ disconnect
     def disconnect(self):
@@ -744,7 +771,8 @@ def vimChatToggleBuddyList():
     nnoremap <buffer> <silent> <Leader>l :py vimChatOpenLogFromBuddyList()<CR>
     nnoremap <buffer> B :py vimChatToggleBuddyList()<CR>
     nnoremap <buffer> q :py vimChatToggleBuddyList()<CR>
-    nnoremap <buffer> <silent> <Leader>ch :py vimChatOpenChatRoom()<CR>
+    nnoremap <buffer> <silent> <Leader>gc :py vimChatOpenGroupChat()<CR>
+    nnoremap <buffer> <silent> <Leader>ss :py vimChatSetStatus()<CR>
     """
     vim.command(commands)
 
@@ -819,8 +847,8 @@ def vimChatSetupChatBuffer():
     nnoremap <buffer> <silent> B :py vimChatToggleBuddyList()<CR>
     nnoremap <buffer> <silent> q :py vimChatDeleteChat()<CR>
     nnoremap <buffer> <silent> <Leader>l :py vimChatOpenLogFromChat()<CR>
-    nnoremap <buffer> <silent> <Leader>ov :py vimChatVerifyBuddy()<CR>
-    nnoremap <buffer> <silent> <Leader>or :py vimChatSMPRespond()<CR>
+    nnoremap <buffer> <silent> <Leader>ov :py vimChatOtrVerifyBuddy()<CR>
+    nnoremap <buffer> <silent> <Leader>or :py vimChatOtrSMPRespond()<CR>
     """
     #au BufLeave <buffer> call clearmatches()
     vim.command(commands)
@@ -933,8 +961,8 @@ def vimChatDeleteChat():
         chatServer.jabberLeaveGroupChat(jid)
     vim.command('bdelete!')
 #}}}
-#{{{ vimChatOpenChatRoom
-def vimChatOpenChatRoom():
+#{{{ vimChatOpenGroupChat
+def vimChatOpenGroupChat():
     chatroom = vim.eval('input("Chat Room to join: ")')
     name = vim.eval('input("Name to Use: ")')
     buf = vimChatBeginChat(chatroom, True)
@@ -1030,12 +1058,26 @@ def vimChatSendMessage():
         if secure:
             secure = "e"
 
-    vimChatAppendMessage(chatBuf,body,'Me',secure)
+    if not isGroupChat():
+        vimChatAppendMessage(chatBuf,body,'Me',secure)
 
 
     vim.command('hide')
     vim.command('sbuffer ' + str(chatBuf.number))
     vim.command('normal G')
+#}}}
+#{{{ vimChatSetStatus
+def vimChatSetStatus():
+    showStr = "(away,xa,dnd,chat)"
+    show = vim.eval('input("Status(away,xa,dnd,chat): ")')
+    status = vim.eval('input("Message: ")')
+    priority = vim.eval('input("Priority: ")')
+    chatServer.jabberPresenceUpdate(show,status,priority)
+    print "Updated states to: " + priority + " -- " + show + " -- " + status
+#}}}
+#{{{ vimChatShowStatus
+def vimChatShowStatus():
+    print chatServer.jabberGetPresence()
 #}}}
 #{{{ vimChatSignOn
 def vimChatSignOn():
@@ -1050,7 +1092,7 @@ def vimChatSignOn():
         return 0
 
     if chatServer:
-        vimChatToggleBuddyList()
+        print "Already connected!"
         return 0
     else:
         print "Connecting..."
@@ -1106,6 +1148,7 @@ def vimChatSignOff():
         try:
             chatServer.disconnect()
             print "Signed Off VimChat!"
+            chatServer = ""
         except Exception, e:
             print "Error signing off VimChat!"
             print e
@@ -1115,14 +1158,16 @@ def vimChatSignOff():
 
 #INCOMING
 #{{{ vimChatPresenceUpdate
-def vimChatPresenceUpdate(fromJid, show, status, priority):
+def vimChatPresenceUpdate(chat, fromJid, show, status, priority):
+    print "Presence received for " + chat
     #Only care if we have the chat window open
     fullJid = fromJid
     [fromJid,user,resource] = getJidParts(fromJid)
+    [chat,nada,nada2] = getJidParts(fromJid)
 
-    if fromJid in chats.keys():
+    if chat in chats.keys():
         #Make sure buffer exists
-        chatBuf = getBufByName(chats[fromJid])
+        chatBuf = getBufByName(chats[chat])
         chatFile = chats[fromJid]
         bExists = int(vim.eval('buflisted("' + chatFile + '")'))
         if chatBuf and bExists:
@@ -1172,8 +1217,8 @@ def vimChatMessageReceived(fromJid, message, secure=False, groupChat=""):
 #}}}
 
 #OTR
-#{{{ vimChatVerifyBuddy
-def vimChatVerifyBuddy():
+#{{{ vimChatOtrVerifyBuddy
+def vimChatOtrVerifyBuddy():
     if not pyotr_enabled:
         return 0
 
@@ -1193,8 +1238,8 @@ def vimChatVerifyBuddy():
     else:
         print "Invalid Response."
 #}}}
-#{{{ vimChatGenerateOTRKey
-def vimChatGenerateOTRKey():
+#{{{ vimChatOtrGenerateKey
+def vimChatOtrGenerateKey():
     if not pyotr_enabled:
         return 0
 
@@ -1208,8 +1253,8 @@ def vimChatGenerateOTRKey():
     else:
         print "Not Generating Key Now."
 #}}}
-#{{{ vimChatSMPRequestNotify
-def vimChatSMPRequestNotify(jid, question):
+#{{{ vimChatOtrSMPRequestNotify
+def vimChatOtrSMPRequestNotify(jid, question):
     if not pyotr_enabled:
         return 0
 
