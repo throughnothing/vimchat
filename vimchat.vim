@@ -1159,7 +1159,6 @@ def vimChatSignOff():
 #INCOMING
 #{{{ vimChatPresenceUpdate
 def vimChatPresenceUpdate(chat, fromJid, show, status, priority):
-    print "Presence received for " + chat
     #Only care if we have the chat window open
     fullJid = fromJid
     [fromJid,user,resource] = getJidParts(fromJid)
