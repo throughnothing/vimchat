@@ -12,6 +12,7 @@
 "   g:vimchat_password = jabber password -- required
 "
 "   g:vimchat_buddylistwidth = width of buddy list
+"   g:vimchat_libnotify = (0 or 1) default is 1
 "   g:vimchat_logpath = path to store log files
 "   g:vimchat_logchats = (0 or 1) default is 1
 "   g:vimchat_otr = (0 or 1) default is 1
@@ -51,6 +52,9 @@ fu! VimChatCheckVars()
     if !exists('g:vimchat_buddylistwidth')
         let g:vimchat_buddylistwidth=30
     endif
+    if !exists('g:vimchat_libnotify')
+        let g:vimchat_libnotify=1
+    endif
     if !exists('g:vimchat_logpath')
         let g:vimchat_logpath="~/.vimchat/logs"
     endif
@@ -82,10 +86,13 @@ from datetime import time
 from time import strftime
 
 try:
-    import pynotify
-    pynotify_enabled = True
+    libnotify = int(vim.eval('g:vimchat_libnotify'))
+    if lidnotify == 1:
+        import pynotify
+        pynotify_enabled = True
+    else:
+        pynotify_enabled = False
 except:
-    print "pynotify missing...no notifications will occur!"
     pynotify_enabled = False
 
 try:
@@ -349,7 +356,8 @@ class VimChat(threading.Thread):
             fromJid = str(msg.getFrom())
             type = str(msg.getType()).lower()
             jid = fromJid.split('/')[0]
-            body = str(msg.getBody())
+            body = unicode(msg.getBody())
+            body = str(body.encode('utf8'))
 
             if pyotr_enabled and type != "groupchat":
                 #OTR Stuff
