@@ -86,12 +86,8 @@ from datetime import time
 from time import strftime
 
 try:
-    libnotify = int(vim.eval('g:vimchat_libnotify'))
-    if lidnotify == 1:
-        import pynotify
-        pynotify_enabled = True
-    else:
-        pynotify_enabled = False
+    import pynotify
+    pynotify_enabled = True
 except:
     pynotify_enabled = False
 
@@ -1090,6 +1086,10 @@ def vimChatShowStatus():
 #{{{ vimChatSignOn
 def vimChatSignOn():
     global chatServer
+    global pynotify_enabled
+    global pyotr_logging
+    global pyotr_enabled
+
     vim.command('nnoremap <buffer> B :py vimChatToggleBuddyList()<CR>')
 
     vim.command('let s:hasVars = VimChatCheckVars()')
@@ -1107,6 +1107,26 @@ def vimChatSignOn():
 
     jid = vim.eval('g:vimchat_jid')
     password = vim.eval('g:vimchat_password')
+    
+    #Libnotify
+    libnotify = int(vim.eval('g:vimchat_libnotify'))
+    if libnotify == 1:
+        pynotify_enabled = True
+    else:
+        pyntofiy_enabled = False
+
+    otr_enabled = int(vim.eval('g:vimchat_otr'))
+    otr_logging = int(vim.eval('g:vimchat_logotr'))
+    if otr_enabled == 1:
+        if otr_logging == 1:
+            pyotr_logging = True
+        else:
+            pyotr_logging = False
+    else:
+        pyotr_enabled = False
+        pyotr_logging = False
+
+
 
     JID=xmpp.protocol.JID(jid)
     jabberClient = xmpp.Client(JID.getDomain(),debug=[])
@@ -1128,18 +1148,6 @@ def vimChatSignOn():
         'message':vimChatMessageReceived,
         'presence':vimChatPresenceUpdate}
 
-
-    #Check if otr is enabled
-    global pyotr_enabled
-    global pyotr_logging
-
-    enable_otr = int(vim.eval('g:vimchat_otr'))
-    if enable_otr == 0:
-        pyotr_enabled = False
-
-    log_otr = int(vim.eval('g:vimchat_logotr'))
-    if log_otr == 0:
-        pyotr_logging = False
 
     chatServer = VimChat(jid, jabberClient, roster, callbacks)
     chatServer.start()
