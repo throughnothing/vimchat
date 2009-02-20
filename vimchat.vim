@@ -983,7 +983,8 @@ def vimChatOpenGroupChat():
 #NOTIFY
 #{{{ vimChatNotify
 def vimChatNotify(title, msg, type):
-    #Do this so we can work without pynotify
+    if 'DBUS_SESSION_BUS_ADDRESS' not in os.environ:
+        return
     if pynotify_enabled:
         pynotify.init('vimchat')
         n = pynotify.Notification(title, msg, type)
