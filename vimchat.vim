@@ -86,8 +86,11 @@ from datetime import time
 from time import strftime
 
 try:
-    import pynotify
-    pynotify_enabled = True
+    if 'DBUS_SESSION_BUS_ADDRESS' in os.environ:
+        import pynotify
+        pynotify_enabled = True
+    else:
+        pynotify_enabled = False
 except:
     pynotify_enabled = False
 
