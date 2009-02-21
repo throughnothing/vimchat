@@ -92,7 +92,7 @@ from time import strftime
 
 pynotify_enabled = False
 try:
-    if 'DBUS_SESSION_BUS_ADDRESS' not in os.environ:
+    if 'DBUS_SESSION_BUS_ADDRESS' in os.environ:
         import pynotify
         pynotify_enabled = True
     else:
