@@ -1404,5 +1404,4 @@ class VimChatScope:
 VimChat = VimChatScope()
 
 EOF
-" vim:et:fdm=marker:fdc=4:sts=4:sw=4:ts=4
-"
+" vim:et:fdm=marker:sts=4:sw=4:ts=4
