@@ -127,7 +127,6 @@ class VimChatScope:
         global pyotr_enabled
         global pyotr_logging
 
-        vim.command('set syntax=vimchat')
         vim.command('nnoremap <buffer> B :py VimChat.toggleBuddyList()<CR>')
         vim.command('let s:hasVars = VimChatCheckVars()')
         hasVars = int(vim.eval('s:hasVars'))
@@ -988,7 +987,7 @@ class VimChatScope:
         setlocal noai
         setlocal nocin
         setlocal nosi
-        setlocal syntax=dcl
+        setlocal syntax=vimchat
         setlocal wrap
         nnoremap <buffer> <silent> i :py VimChat.sendBufferShow()<CR>
         nnoremap <buffer> <silent> o :py VimChat.sendBufferShow()<CR>
