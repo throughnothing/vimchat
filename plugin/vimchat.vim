@@ -159,6 +159,9 @@ class VimChatScope:
         numAccounts = str(len(vimChatAccounts))
         print numAccounts + " accounts found..."
         for jid,password in vimChatAccounts.items():
+            if password == '':
+                password = vim.eval('inputsecret("' + jid + ' password: ")')
+
             self.signOn(jid,password)
 
         self.toggleBuddyList()
