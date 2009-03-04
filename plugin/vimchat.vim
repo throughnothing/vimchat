@@ -40,7 +40,7 @@ com! VimChatBuddyList py VimChat.toggleBuddyList()
 com! VimChatViewLog py VimChat.openLogFromChat()
 com! VimChatJoinGroupChat py VimChat.openGroupChat()
 com! VimChatOtrVerifyBuddy py VimChat.otrVerifyBuddy()
-com! VimChatOtrSMPRespond py VimChat.otrSMPRespond()
+com! VimChatOtrSMPRespond py VimChat.otrSmpRespond()
 com! VimChatOtrGenerateKey py VimChat.otrGenerateKey()
 com! -nargs=0 VimChatSetStatus py VimChat.setStatus(<args>)
 com! VimChatShowStatus py VimChat.showStatus()
@@ -405,7 +405,8 @@ class VimChatScope:
                             self.otrAbortVerify(context)
                         else:
                             tlv = otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP1Q)
-                            VimChat.smpRequestNotify(context.username,tlv.data)
+                            VimChat.otrSMPRequestNotify(
+                                context.accountname, context.username,tlv.data)
                     elif otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP2) is not None:
                         if context.smstate.nextExpected != otr.OTRL_SMP_EXPECT2:
                             self.otrAbortVerify(context)
@@ -999,7 +1000,7 @@ class VimChatScope:
         nnoremap <buffer> <silent> q :py VimChat.deleteChat()<CR>
         nnoremap <buffer> <silent> <Leader>l :py VimChat.openLogFromChat()<CR>
         nnoremap <buffer> <silent> <Leader>ov :py VimChat.otrVerifyBuddy()<CR>
-        nnoremap <buffer> <silent> <Leader>or :py VimChat.otrSMPRespond()<CR>
+        nnoremap <buffer> <silent> <Leader>or :py VimChat.otrSmpRespond()<CR>
         """
         #au BufLeave <buffer> call clearmatches()
         vim.command(commands)
@@ -1376,15 +1377,15 @@ class VimChatScope:
             print "Error generating key!"
     #}}}
     #{{{ otrSMPRequestNotify
-    def otrSMPRequestNotify(self, jid, question):
+    def otrSMPRequestNotify(self, account, jid, question):
         if not pyotr_enabled:
             return 0
 
-        buf = VimChat.beginChat(self._jids, jid)
+        buf = VimChat.beginChat(account, jid)
         if buf:
             message = "-- OTR Verification Request received!  " + \
                 "Press <Leader>or to answer the question below:\n" + question
-            VimChat.appendMessage(self._jids, buf,message, "[OTR]")
+            VimChat.appendMessage(account, buf,message, "[OTR]")
             print "OTR Verification Request from " + jid
     #}}}
     #{{{ otrSmpRespond
