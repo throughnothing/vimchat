@@ -282,7 +282,8 @@ class VimChatScope:
         #}}}
         #{{{ gone_insecure
         def gone_insecure(self, opdata=None, context=None):
-            buf = self.getBufByName(chats[context.username])
+            connection = VimChat.accounts[context.accountname]
+            buf = self.getBufByName(connection._chats[context.username])
             if buf:
                 VimChat.appendStatusMessage(context.accountname,
                     buf,"[OTR]","-- Secured OTR Connection Ended")
@@ -294,13 +295,16 @@ class VimChatScope:
             # (ie. new session keys have been created)
             # is_reply will be 0 when we started we started that refresh, 
             #   1 when the contact started it
-            
-            buf = VimChat.getBufByName(chats[context.username])
-            if buf:
-                jid = "[OTR]"
-                VimChat.appendStatusMessage(context.accountname, 
-                    buf,"[OTR]","-- Secured OTR Connection Refreshed")
-                print "Secure OTR Connection Refreshed with "+str(context.username)
+            try: 
+                connection = VimChat.accounts[context.accountname]
+                buf = self.getBufByName(connection._chats[context.username])
+                if buf:
+                    jid = "[OTR]"
+                    VimChat.appendStatusMessage(context.accountname, 
+                        buf,"[OTR]","-- Secured OTR Connection Refreshed")
+                    print "Secure OTR Connection Refreshed with "+str(context.username)
+            except Exception, e:
+                print "Error in still_secure: " + str(e)
         #}}}
         #{{{ log_message
         def log_message(self, opdata=None, message=None):
@@ -488,10 +492,10 @@ class VimChatScope:
                     if len(parts) > 1:
                         user = parts[1]
 
-                    VimChat.presenceUpdate(
+                    VimChat.presenceUpdate(self._jids,
                         str(chatroom), str(user), show,status,priority)
                 else:
-                    VimChat.presenceUpdate(
+                    VimChat.presenceUpdate(self._jids,
                         str(fromJid), fromJid,show,status,priority)
             except:
                 pass
@@ -1268,29 +1272,32 @@ class VimChatScope:
 
     #INCOMING
     #{{{ presenceUpdate
-    def presenceUpdate(self, chat, fromJid, show, status, priority):
-        #TODO: get this working again
-        return 0
-        #Only care if we have the chat window open
-        fullJid = fromJid
-        [fromJid,user,resource] = self.getJidParts(fromJid)
-        [chat,nada,nada2] = self.getJidParts(fromJid)
+    def presenceUpdate(self, account, chat, fromJid, show, status, priority):
+        try:
+            #Only care if we have the chat window open
+            fullJid = fromJid
+            [fromJid,user,resource] = self.getJidParts(fromJid)
+            [chat,nada,nada2] = self.getJidParts(fromJid)
 
-        if chat in chats.keys():
-            #Make sure buffer exists
-            chatBuf = self.getBufByName(chats[chat])
-            chatFile = chats[fromJid]
-            bExists = int(vim.eval('buflisted("' + chatFile + '")'))
-            if chatBuf and bExists:
-                statusUpdateLine = self.formatPresenceUpdateLine(fullJid,show,status)
-                if chatBuf[-1] != statusUpdateLine:
-                    chatBuf.append(statusUpdateLine)
-                    self.moveCursorToBufBottom(chatBuf)
+            connection = VimChat.accounts[account]
+            
+            if chat in connection._chats.keys():
+                #Make sure buffer exists
+                chatFile = connection._chats[account]
+                chatBuf = self.getBufByName(chatFile)
+                bExists = int(vim.eval('buflisted("' + chatFile + '")'))
+                if chatBuf and bExists:
+                    statusUpdateLine = self.formatPresenceUpdateLine(fullJid,show,status)
+                    if chatBuf[-1] != statusUpdateLine:
+                        chatBuf.append(statusUpdateLine)
+                        self.moveCursorToBufBottom(chatBuf)
 
-                    print "Presence Updated for: " + str(fullJid)
-            else:
-                #Should never get here!
-                print "Buffer did not exist for: " + fromJid
+                        print "Presence Updated for: " + str(fullJid)
+                else:
+                    #Should never get here!
+                    print "Buffer did not exist for: " + fromJid
+        except Exception, e:
+            print "Error in presenceUpdate: " + str(e)
 
     #}}}
     #{{{ messageReceived
