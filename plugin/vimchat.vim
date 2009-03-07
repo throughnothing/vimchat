@@ -867,8 +867,8 @@ class VimChatScope:
         set foldmethod=marker
         nmap <buffer> <silent> <CR> :py VimChat.beginChatFromBuddyList()<CR>
         nnoremap <buffer> <silent> <Leader>l :py VimChat.openLogFromBuddyList()<CR>
-        nnoremap <buffer> B :py VimChat.toggleBuddyList()<CR>
-        nnoremap <buffer> q :py VimChat.toggleBuddyList()<CR>
+        nnoremap <buffer> <silent> B :py VimChat.toggleBuddyList()<CR>
+        nnoremap <buffer> <silent> q :py VimChat.toggleBuddyList()<CR>
         nnoremap <buffer> <silent> <Leader>gc :py VimChat.openGroupChat()<CR>
         nnoremap <buffer> <silent> <Leader>ss :py VimChat.setStatus()<CR>
         """
@@ -995,6 +995,7 @@ class VimChatScope:
         setlocal noai
         setlocal nocin
         setlocal nosi
+        setlocal filetype=vimchat
         setlocal syntax=vimchat
         setlocal wrap
         nnoremap <buffer> <silent> i :py VimChat.sendBufferShow()<CR>
@@ -1020,6 +1021,7 @@ class VimChatScope:
         vim.command("silent bo new " + sendBuffer)
         vim.command("silent let b:buddyId = '" + toJid +  "'")
         vim.command("silent let b:account = '" + account +  "'")
+        vim.command("setlocal filetype=vimchat")
 
         commands = """\
             resize 4
@@ -1029,9 +1031,9 @@ class VimChatScope:
             setlocal nosi
             setlocal buftype=nowrite
             setlocal wrap
-            noremap <buffer> <CR> :py VimChat.sendMessage()<CR>
-            inoremap <buffer> <CR> <Esc>:py VimChat.sendMessage()<CR>
-            nnoremap <buffer> q :hide<CR>
+            noremap <buffer> <silent> <CR> :py VimChat.sendMessage()<CR>
+            inoremap <buffer> <silent> <CR> <Esc>:py VimChat.sendMessage()<CR>
+            nnoremap <buffer> <silent> q :hide<CR>
         """
         vim.command(commands)
         vim.command('normal G')
