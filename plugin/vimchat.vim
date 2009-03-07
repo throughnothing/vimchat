@@ -27,68 +27,16 @@
 "   g:vimchat_logotr = (0 or 1) default is 1
 "
 
-"{{{ Vim Commands
-if exists('g:vimchat_loaded')
-    finish
-endif
-let g:vimchat_loaded = 1
-
-com! VimChat py VimChat.init() 
-com! VimChatSignOn py VimChat.signOn()
-com! VimChatSignOff py VimChat.signOff()
-com! VimChatBuddyList py VimChat.toggleBuddyList()
-com! VimChatViewLog py VimChat.openLogFromChat()
-com! VimChatJoinGroupChat py VimChat.openGroupChat()
-com! VimChatOtrVerifyBuddy py VimChat.otrVerifyBuddy()
-com! VimChatOtrSMPRespond py VimChat.otrSmpRespond()
-com! VimChatOtrGenerateKey py VimChat.otrGenerateKey()
-com! -nargs=0 VimChatSetStatus py VimChat.setStatus(<args>)
-com! VimChatShowStatus py VimChat.showStatus()
-
-set switchbuf=usetab
-
-"}}}
-"{{{ VimChatCheckVars
-fu! VimChatCheckVars()
-    if !exists('g:vimchat_accounts')
-        echo "Must set g:vimchat_accounts in ~/.vimrc!"
-        return 0
-    endif
-    if !exists('g:vimchat_buddylistwidth')
-        let g:vimchat_buddylistwidth=30
-    endif
-    if !exists('g:vimchat_libnotify')
-        let g:vimchat_libnotify=1
-    endif
-    if !exists('g:vimchat_logpath')
-        let g:vimchat_logpath="~/.vimchat/logs"
-    endif
-    if !exists('g:vimchat_logchats')
-        let g:vimchat_logchats=1
-    endif
-    if !exists('g:vimchat_otr')
-        let g:vimchat_otr=1
-    endif
-    if !exists('g:vimchat_logotr')
-        let g:vimchat_logotr=1
-    endif
-
-    return 1
-endfu
-"}}}
-"{{{ VimChatFoldText
-function! VimChatFoldText()
-    let line=substitute(getline(v:foldstart),'^[ \t#]*\([^=]*\).*', '\1', '')
-    let line=strpart('                                     ', 0, (v:foldlevel - 1)).substitute(line,'\s*{\+\s*', '', '')
-    return line
-endfunction
-"}}}
 
 python <<EOF
 #{{{ Imports
-import os, os.path, select, threading, vim, xmpp
-from datetime import time
-from time import strftime
+try:
+    import vim
+    import os, os.path, select, threading, xmpp
+    from datetime import time
+    from time import strftime
+except:
+    vim.command('let g:vimchat_loaded = 1')
 
 pynotify_enabled = False
 try:
@@ -1417,4 +1365,61 @@ class VimChatScope:
 VimChat = VimChatScope()
 
 EOF
+
+"{{{ Vim Commands
+if exists('g:vimchat_loaded')
+    finish
+endif
+let g:vimchat_loaded = 1
+
+com! VimChat py VimChat.init() 
+com! VimChatSignOn py VimChat.signOn()
+com! VimChatSignOff py VimChat.signOff()
+com! VimChatBuddyList py VimChat.toggleBuddyList()
+com! VimChatViewLog py VimChat.openLogFromChat()
+com! VimChatJoinGroupChat py VimChat.openGroupChat()
+com! VimChatOtrVerifyBuddy py VimChat.otrVerifyBuddy()
+com! VimChatOtrSMPRespond py VimChat.otrSmpRespond()
+com! VimChatOtrGenerateKey py VimChat.otrGenerateKey()
+com! -nargs=0 VimChatSetStatus py VimChat.setStatus(<args>)
+com! VimChatShowStatus py VimChat.showStatus()
+
+set switchbuf=usetab
+
+"}}}
+"{{{ VimChatCheckVars
+fu! VimChatCheckVars()
+    if !exists('g:vimchat_accounts')
+        echo "Must set g:vimchat_accounts in ~/.vimrc!"
+        return 0
+    endif
+    if !exists('g:vimchat_buddylistwidth')
+        let g:vimchat_buddylistwidth=30
+    endif
+    if !exists('g:vimchat_libnotify')
+        let g:vimchat_libnotify=1
+    endif
+    if !exists('g:vimchat_logpath')
+        let g:vimchat_logpath="~/.vimchat/logs"
+    endif
+    if !exists('g:vimchat_logchats')
+        let g:vimchat_logchats=1
+    endif
+    if !exists('g:vimchat_otr')
+        let g:vimchat_otr=1
+    endif
+    if !exists('g:vimchat_logotr')
+        let g:vimchat_logotr=1
+    endif
+
+    return 1
+endfu
+"}}}
+"{{{ VimChatFoldText
+function! VimChatFoldText()
+    let line=substitute(getline(v:foldstart),'^[ \t#]*\([^=]*\).*', '\1', '')
+    let line=strpart('                                     ', 0, (v:foldlevel - 1)).substitute(line,'\s*{\+\s*', '', '')
+    return line
+endfunction
+"}}}
 " vim:et:fdm=marker:sts=4:sw=4:ts=4
