@@ -426,8 +426,8 @@ class VimChatScope:
                 status = str(unicode(msg.getStatus()).encode('utf-8'))
                 priority = str(unicode(msg.getPriority()).encode('utf-8'))
 
-                if not show:
-                    if priority:
+                if show == "None":
+                    if priority != "None":
                         show = 'online'
                     else:
                         show = 'offline'
@@ -1207,7 +1207,7 @@ class VimChatScope:
         parts = status.split(',')
         show = parts[0]
         status = ''
-        priority = ''
+        priority = 10
         if len(parts) > 1:
             status = parts[1]
         if len(parts) > 2:
