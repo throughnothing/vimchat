@@ -25,7 +25,6 @@
 "   g:vimchat_logchats = (0 or 1) default is 1
 "   g:vimchat_otr = (0 or 1) default is 1
 "   g:vimchat_logotr = (0 or 1) default is 1
-"
 
 
 python <<EOF
@@ -1233,7 +1232,7 @@ class VimChatScope:
             
             if chat in connection._chats.keys():
                 #Make sure buffer exists
-                chatFile = connection._chats[account]
+                chatFile = connection._chats[fromJid]
                 chatBuf = self.getBufByName(chatFile)
                 bExists = int(vim.eval('buflisted("' + chatFile + '")'))
                 if chatBuf and bExists:
@@ -1422,4 +1421,5 @@ function! VimChatFoldText()
     return line
 endfunction
 "}}}
+
 " vim:et:fdm=marker:sts=4:sw=4:ts=4
