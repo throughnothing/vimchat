@@ -953,8 +953,8 @@ class VimChatScope:
         nnoremap <buffer> <silent> <Leader>l :py VimChat.openLogFromChat()<CR>
         nnoremap <buffer> <silent> <Leader>ov :py VimChat.otrVerifyBuddy()<CR>
         nnoremap <buffer> <silent> <Leader>or :py VimChat.otrSmpRespond()<CR>
+        au CursorMoved <buffer> set tabline&
         """
-        #au BufLeave <buffer> call clearmatches()
         vim.command(commands)
     #}}}
     #{{{ sendBufferShow
@@ -1277,6 +1277,8 @@ class VimChatScope:
         # TODO: This only works if the right window has focus.  Otherwise it
         # highlights the wrong lines.
         # vim.command("call matchadd('Error', '\%' . line('$') . 'l')")
+
+        vim.command("set tabline=%#Error#New-message-from-" + jid );
 
         # Notify
         print "Message Received from: " + jid
