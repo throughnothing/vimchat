@@ -75,6 +75,7 @@ class VimChatScope:
         global pyotr_logging
 
         vim.command('nnoremap <buffer> B :py VimChat.toggleBuddyList()<CR>')
+        vim.command('nnoremap <buffer> <silent> <Leader>c :py VimChat.openGroupChat()<CR>')
         vim.command('let s:hasVars = VimChatCheckVars()')
         hasVars = int(vim.eval('s:hasVars'))
 
@@ -816,7 +817,7 @@ class VimChatScope:
         nnoremap <buffer> <silent> <Leader>l :py VimChat.openLogFromBuddyList()<CR>
         nnoremap <buffer> <silent> B :py VimChat.toggleBuddyList()<CR>
         nnoremap <buffer> <silent> q :py VimChat.toggleBuddyList()<CR>
-        nnoremap <buffer> <silent> <Leader>gc :py VimChat.openGroupChat()<CR>
+        nnoremap <buffer> <silent> <Leader>c :py VimChat.openGroupChat()<CR>
         nnoremap <buffer> <silent> <Leader>ss :py VimChat.setStatus()<CR>
         """
         vim.command(commands)
@@ -953,6 +954,7 @@ class VimChatScope:
         nnoremap <buffer> <silent> <Leader>l :py VimChat.openLogFromChat()<CR>
         nnoremap <buffer> <silent> <Leader>ov :py VimChat.otrVerifyBuddy()<CR>
         nnoremap <buffer> <silent> <Leader>or :py VimChat.otrSmpRespond()<CR>
+        nnoremap <buffer> <silent> <Leader>c :py VimChat.openGroupChat()<CR>
         au CursorMoved <buffer> set tabline&
         """
         vim.command(commands)
