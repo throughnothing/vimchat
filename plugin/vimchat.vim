@@ -719,7 +719,7 @@ class VimChatScope:
     #}}}
     #{{{ showStatus
     def showStatus(self):
-        print chatServer.jabberGetPresence()
+        print self.accounts[self.accounts.keys()[0]].jabberGetPresence()
     #}}}
 
     #HELPER FUNCTIONS
@@ -1216,7 +1216,7 @@ class VimChatScope:
         for jid,account in self.accounts.items():
             account.jabberPresenceUpdate(show,status,priority)
 
-        print "Updated status to: " + priority + " -- " + show + " -- " + status
+        print "Updated status to: " + str(priority) + " -- " + show + " -- " + status
     #}}}
 
     #INCOMING
