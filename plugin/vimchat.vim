@@ -1235,6 +1235,8 @@ class VimChatScope:
             if chat in connection._chats.keys():
                 #Make sure buffer exists
                 chatFile = connection._chats[fromJid]
+                if chatFile.startswith('groupchat'):
+                    return
                 chatBuf = self.getBufByName(chatFile)
                 bExists = int(vim.eval('buflisted("' + chatFile + '")'))
                 if chatBuf and bExists:
