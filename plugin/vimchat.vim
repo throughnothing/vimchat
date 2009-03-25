@@ -25,6 +25,7 @@
 "   g:vimchat_logchats = (0 or 1) default is 1
 "   g:vimchat_otr = (0 or 1) default is 1
 "   g:vimchat_logotr = (0 or 1) default is 1
+"   g:vimchat_statusicon = (0 or 1) default is 1
 
 
 python <<EOF
@@ -56,6 +57,15 @@ try:
 except:
     pyotr_enabled = False
     pyotr_logging = False
+
+
+gtk_available = False
+try:
+    from gtk import StatusIcon
+    import gtk
+    gtk_available = True
+except:
+    gtk_available = False
 #}}}
 
 #{{{ VimChatScope
@@ -100,6 +110,14 @@ class VimChatScope:
         else:
             pyotr_enabled = False
             pyotr_logging = False
+
+        # GTK StausIcon
+        #self.status_icon = StatusIcon()
+        #self.status_icon.set_from_stock(gtk.STOCK_HOME)
+        #self.status_icon.set_tooltip("VimChat")
+        #self.status_icon.set_visible(True)
+        #gtk.main()
+
 
 
         #Get JID's/Passwords
@@ -811,8 +829,8 @@ class VimChatScope:
 
         commands = """
         setlocal foldtext=VimChatFoldText()
-        set nowrap
-        set foldmethod=marker
+        setlocal nowrap
+        setlocal foldmethod=marker
         nmap <buffer> <silent> <CR> :py VimChat.beginChatFromBuddyList()<CR>
         nnoremap <buffer> <silent> <Leader>l :py VimChat.openLogFromBuddyList()<CR>
         nnoremap <buffer> <silent> B :py VimChat.toggleBuddyList()<CR>
@@ -1415,6 +1433,9 @@ fu! VimChatCheckVars()
     endif
     if !exists('g:vimchat_logotr')
         let g:vimchat_logotr=1
+    endif
+    if !exists('g:vimchat_statusicon')
+        let g:vimchat_statusicon=1
     endif
 
     return 1
