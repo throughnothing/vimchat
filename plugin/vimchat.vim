@@ -59,13 +59,13 @@ except:
     pyotr_logging = False
 
 
-gtk_available = False
+gtk_enabled = False
 try:
     from gtk import StatusIcon
     import gtk
-    gtk_available = True
+    gtk_enabled = True
 except:
-    gtk_available = False
+    gtk_enabled = False
 #}}}
 
 #{{{ VimChatScope
@@ -77,6 +77,7 @@ class VimChatScope:
     otr_fingerprints = 'fingerprints'
     buddyListBuffer = None
     rosterFile = '/tmp/vimChatRoster'
+    statusIcon = None
 
     #{{{ init
     def init(self):
@@ -111,14 +112,15 @@ class VimChatScope:
             pyotr_enabled = False
             pyotr_logging = False
 
-        # GTK StausIcon
-        #self.status_icon = StatusIcon()
-        #self.status_icon.set_from_stock(gtk.STOCK_HOME)
-        #self.status_icon.set_tooltip("VimChat")
-        #self.status_icon.set_visible(True)
-        #gtk.main()
+        isStatusIcon = int(vim.eval('g:vimchat_statusicon'))
+        if isStatusIcon == 1:
+            gtk_enabled = True
+        else:
+            gtk_enabled = False
 
-
+        if gtk_enabled:
+            self.statusIcon = self.StatusIcon()
+            self.statusIcon.start()
 
         #Get JID's/Passwords
         vimChatAccounts = vim.eval('g:vimchat_accounts')
@@ -687,6 +689,20 @@ class VimChatScope:
                 return False
         #}}}
     #}}}
+    #{{{ class StatusIcon
+    class StatusIcon(threading.Thread):
+        def run(self):
+            # GTK StausIcon
+            gtk.gdk.threads_init()
+            self.status_icon = StatusIcon()
+            self.status_icon.set_from_file(os.path.expanduser(
+                '~/.vimchat/icon.gif'))
+            self.status_icon.set_tooltip("VimChat")
+            self.status_icon.set_visible(True)
+            gtk.main()
+        def blink(self, value):
+            self.status_icon.set_blinking(value)
+    #}}}
 
     #CONNECTION FUNCTIONS
     #{{{ signOn
@@ -973,7 +989,7 @@ class VimChatScope:
         nnoremap <buffer> <silent> <Leader>ov :py VimChat.otrVerifyBuddy()<CR>
         nnoremap <buffer> <silent> <Leader>or :py VimChat.otrSmpRespond()<CR>
         nnoremap <buffer> <silent> <Leader>c :py VimChat.openGroupChat()<CR>
-        au CursorMoved <buffer> set tabline&
+        au CursorMoved <buffer> exe 'py VimChat.clearNotify()'
         """
         vim.command(commands)
     #}}}
@@ -1130,8 +1146,16 @@ class VimChatScope:
             n = pynotify.Notification(title, msg, type)
             n.set_timeout(10000)
             n.show()
-    #}}}
 
+        if gtk_enabled:
+            self.statusIcon.blink(True)
+    #}}}
+    #{{{
+    def clearNotify(self):
+        if gtk_enabled:
+            self.statusIcon.blink(False)
+        vim.command('au CursorMoved <buffer> set tabline&')
+    #}}}
     #LOGGING
     #{{{ log
     def log(self, account, user, msg):
