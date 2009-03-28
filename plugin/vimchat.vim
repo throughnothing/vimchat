@@ -853,7 +853,9 @@ class VimChatScope:
         nnoremap <buffer> <silent> q :py VimChat.toggleBuddyList()<CR>
         nnoremap <buffer> <silent> <Leader>c :py VimChat.openGroupChat()<CR>
         nnoremap <buffer> <silent> <Leader>ss :py VimChat.setStatus()<CR>
+        nnoremap <buffer> <silent> <Space> :silent exec 'vertical resize ' . (winwidth('.') > g:vimchat_buddylistwidth ? (g:vimchat_buddylistwidth) : '')<CR>
         """
+
         vim.command(commands)
 
         self.buddyListBuffer = vim.current.buffer
