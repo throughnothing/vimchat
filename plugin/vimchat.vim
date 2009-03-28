@@ -956,7 +956,7 @@ class VimChatScope:
         if bExists: 
             return self.getBufByName(chatFile)
         else:
-            vim.command("split " + chatFile)
+            vim.command("split " + chatFile.replace('%', r'\%'))
             #Only do this stuff if its a new buffer
             if groupChat:
                 vim.command('let b:groupchat=1')
