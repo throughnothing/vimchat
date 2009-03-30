@@ -1332,8 +1332,7 @@ class VimChatScope:
         [jid,user,resource] = self.getJidParts(fromJid)
 
         if groupChat:
-            if re.search('has joined.+\(.=.+@.+\)$', message) or\
-                    re.search('has quit.+\(.=.+@.+\)$', message):
+            if re.search('has (joined|quit|part).+\(.=.+@.+\)$', message):
                 return
             buf = VimChat.beginChat(account, groupChat)
         else:
