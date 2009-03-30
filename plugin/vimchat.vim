@@ -32,7 +32,7 @@ python <<EOF
 #{{{ Imports
 try:
     import vim
-    import os, os.path, select, threading, xmpp
+    import os, os.path, select, threading, xmpp, re
     from datetime import time
     from time import strftime
 except:
@@ -1332,6 +1332,9 @@ class VimChatScope:
         [jid,user,resource] = self.getJidParts(fromJid)
 
         if groupChat:
+            if re.search('has joined.+\(.=.+@.+\)$', message) or\
+                    re.search('has quit.+\(.=.+@.+\)$', message):
+                return
             buf = VimChat.beginChat(account, groupChat)
         else:
             buf = VimChat.beginChat(account, jid)
