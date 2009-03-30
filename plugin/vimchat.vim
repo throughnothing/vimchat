@@ -72,6 +72,7 @@ except:
 class VimChatScope:
     #Global Variables
     accounts = {}
+    groupChatNames = [] # The names you are using in group chats.
     otr_basedir = '~/.vimchat/otr'
     otr_keyfile = 'otrkey'
     otr_fingerprints = 'fingerprints'
@@ -767,7 +768,9 @@ class VimChatScope:
     #{{{ getJidParts
     def getJidParts(self, jid):
         jidParts = str(jid).split('/')
+        # jid: bob@foo.com
         jid = jidParts[0]
+        # user: bob
         user = jid.split('@')[0]
 
         #Get A Resource if exists
@@ -1113,10 +1116,12 @@ class VimChatScope:
     def openGroupChat(self):
         accounts = self.showAccountList()
 
-        account = accounts[int(vim.eval('input("Account: ")'))]
+        account = accounts[int(vim.eval(
+            'input("Account (enter the number from the above list): ")'))]
 
         chatroom = vim.eval('input("Chat Room to join: ")')
         name = vim.eval('input("Name to Use: ")')
+        self.groupChatNames.append(name)
         buf = VimChat.beginChat(account._jids, chatroom, True)
         vim.command('sbuffer ' + str(buf.number))
 
@@ -1138,26 +1143,40 @@ class VimChatScope:
 
     #NOTIFY
     #{{{ notify
-    def notify(self, title, msg, type):
-        #Do this so we can work without pynotify
-        if 'DBUS_SESSION_BUS_ADDRESS' not in os.environ:
-            return
+    def notify(self, jid, msg, groupChat):
+        # Important to keep this print statement.  As a side effect, it
+        # refreshes the buffer so the new message shows up.
+        print "Message Received from: " + jid
 
-        if pynotify_enabled:
+        if groupChat:
+            myNames = map(lambda x: x.split('@')[0], self.accounts.keys())
+            myNames.extend(self.groupChatNames)
+            foundMyName = False
+            for name in myNames:
+                if name in msg:
+                    foundMyName = True
+                    break
+            if not foundMyName:
+                return
+
+        vim.command("set tabline=%#Error#New-message-from-" + jid);
+
+        if pynotify_enabled and 'DBUS_SESSION_BUS_ADDRESS' in os.environ:
             pynotify.init('vimchat')
-            n = pynotify.Notification(title, msg, type)
+            n = pynotify.Notification(jid + 'says: ', msg, 'dialog-warning')
             n.set_timeout(10000)
             n.show()
 
         if gtk_enabled:
             self.statusIcon.blink(True)
     #}}}
-    #{{{
+    #{{{ clearNotify
     def clearNotify(self):
+        vim.command('set tabline&')
         if gtk_enabled:
             self.statusIcon.blink(False)
-        vim.command('au CursorMoved <buffer> set tabline&')
     #}}}
+
     #LOGGING
     #{{{ log
     def log(self, account, user, msg):
@@ -1311,12 +1330,12 @@ class VimChatScope:
         #Get Jid Parts
         [jid,user,resource] = self.getJidParts(fromJid)
 
-        if groupChat == "":
-            buf = VimChat.beginChat(account, jid)
+        if groupChat:
+            buf = VimChat.beginChat(account, groupChat)
             # Append message to the buffer.
             VimChat.appendMessage(account, buf, message, fromJid, secure)
         else:
-            buf = VimChat.beginChat(account, groupChat)
+            buf = VimChat.beginChat(account, jid)
             # Append message to the buffer.
             VimChat.appendMessage(account, buf, message, fromJid, secure)
 
@@ -1326,11 +1345,8 @@ class VimChatScope:
         # highlights the wrong lines.
         # vim.command("call matchadd('Error', '\%' . line('$') . 'l')")
 
-        vim.command("set tabline=%#Error#New-message-from-" + jid );
-
         # Notify
-        print "Message Received from: " + jid
-        self.notify(user + ' says:', message, 'dialog-warning')
+        self.notify(jid, message, groupChat)
     #}}}
 
     #OTR
