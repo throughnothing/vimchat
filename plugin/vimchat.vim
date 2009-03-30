@@ -1163,7 +1163,7 @@ class VimChatScope:
 
         if pynotify_enabled and 'DBUS_SESSION_BUS_ADDRESS' in os.environ:
             pynotify.init('vimchat')
-            n = pynotify.Notification(jid + 'says: ', msg, 'dialog-warning')
+            n = pynotify.Notification(jid + ' says: ', msg, 'dialog-warning')
             n.set_timeout(10000)
             n.show()
 
@@ -1321,24 +1321,22 @@ class VimChatScope:
         #Store the buffer we were in
         origBufNum = vim.current.buffer.number
 
-        # If the current buffer is the buddy list, then switch to a different
-        # window first. This should help keep all the new windows split
-        # horizontally.
-        if origBufNum == self.buddyListBuffer.number:
-            vim.command('wincmd w')
+        # Commented out the next 2 lines.  For some reason, when the orig
+        # buffer is the buddy list, it causes a bug that makes it so you
+        # don't receive any more messages.
+        #
+        #if origBufNum == self.buddyListBuffer.number:
+        #    vim.command('wincmd w')
 
         #Get Jid Parts
         [jid,user,resource] = self.getJidParts(fromJid)
 
         if groupChat:
             buf = VimChat.beginChat(account, groupChat)
-            # Append message to the buffer.
-            VimChat.appendMessage(account, buf, message, fromJid, secure)
         else:
             buf = VimChat.beginChat(account, jid)
-            # Append message to the buffer.
-            VimChat.appendMessage(account, buf, message, fromJid, secure)
 
+        VimChat.appendMessage(account, buf, message, fromJid, secure)
 
         # Highlight the line.
         # TODO: This only works if the right window has focus.  Otherwise it
