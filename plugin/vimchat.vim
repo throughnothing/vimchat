@@ -1116,9 +1116,22 @@ class VimChatScope:
     def openGroupChat(self):
         accounts = self.showAccountList()
 
-        account = accounts[int(vim.eval(
-            'input("Account (enter the number from the above list): ")'))]
+        input = vim.eval(
+            'input("Account (enter the number from the above list): ")')
+        if not re.match(r'\d+$', input):
+            vim.command('echohl ErrorMsg')
+            vim.command('echo "\\nYou must enter an integer corresponding'
+                + ' to an account."')
+            vim.command('echohl None')
+            return
+        index = int(input)
+        if index < 0 or index >= len(accounts):
+            vim.command('echohl ErrorMsg')
+            vim.command(r'echo "\nInvalid account number. Try again."')
+            vim.command('echohl None')
+            return
 
+        account = accounts[index]
         chatroom = vim.eval('input("Chat Room to join: ")')
         name = vim.eval('input("Name to Use: ")')
         self.groupChatNames.append(name)
@@ -1139,42 +1152,6 @@ class VimChatScope:
             i = i + 1
 
         return accounts
-    #}}}
-
-    #NOTIFY
-    #{{{ notify
-    def notify(self, jid, msg, groupChat):
-        # Important to keep this print statement.  As a side effect, it
-        # refreshes the buffer so the new message shows up.
-        print "Message Received from: " + jid
-
-        if groupChat:
-            myNames = map(lambda x: x.split('@')[0], self.accounts.keys())
-            myNames.extend(self.groupChatNames)
-            foundMyName = False
-            for name in myNames:
-                if name in msg:
-                    foundMyName = True
-                    break
-            if not foundMyName:
-                return
-
-        vim.command("set tabline=%#Error#New-message-from-" + jid);
-
-        if pynotify_enabled and 'DBUS_SESSION_BUS_ADDRESS' in os.environ:
-            pynotify.init('vimchat')
-            n = pynotify.Notification(jid + ' says: ', msg, 'dialog-warning')
-            n.set_timeout(10000)
-            n.show()
-
-        if gtk_enabled:
-            self.statusIcon.blink(True)
-    #}}}
-    #{{{ clearNotify
-    def clearNotify(self):
-        vim.command('set tabline&')
-        if gtk_enabled:
-            self.statusIcon.blink(False)
     #}}}
 
     #LOGGING
@@ -1347,6 +1324,40 @@ class VimChatScope:
 
         # Notify
         self.notify(jid, message, groupChat)
+    #}}}
+    #{{{ notify
+    def notify(self, jid, msg, groupChat):
+        # Important to keep this print statement.  As a side effect, it
+        # refreshes the buffer so the new message shows up.
+        print "Message Received from: " + jid
+
+        if groupChat:
+            myNames = map(lambda x: x.split('@')[0], self.accounts.keys())
+            myNames.extend(self.groupChatNames)
+            foundMyName = False
+            for name in myNames:
+                if name in msg:
+                    foundMyName = True
+                    break
+            if not foundMyName:
+                return
+
+        vim.command("set tabline=%#Error#New-message-from-" + jid);
+
+        if pynotify_enabled and 'DBUS_SESSION_BUS_ADDRESS' in os.environ:
+            pynotify.init('vimchat')
+            n = pynotify.Notification(jid + ' says: ', msg, 'dialog-warning')
+            n.set_timeout(10000)
+            n.show()
+
+        if gtk_enabled:
+            self.statusIcon.blink(True)
+    #}}}
+    #{{{ clearNotify
+    def clearNotify(self):
+        vim.command('set tabline&')
+        if gtk_enabled:
+            self.statusIcon.blink(False)
     #}}}
 
     #OTR
