@@ -32,9 +32,7 @@ python <<EOF
 #{{{ Imports
 try:
     import vim
-    import os, os.path, select, threading, xmpp, re
-    from datetime import time
-    from time import strftime
+    import os, os.path, select, threading, xmpp, re, time
 except:
     vim.command('let g:vimchat_loaded = 1')
 
@@ -79,6 +77,7 @@ class VimChatScope:
     buddyListBuffer = None
     rosterFile = '/tmp/vimChatRoster'
     statusIcon = None
+    lastMessageTime = 0
 
     #{{{ init
     def init(self):
@@ -86,6 +85,7 @@ class VimChatScope:
         global pyotr_enabled
         global pyotr_logging
 
+        vim.command('redir! > ~/.vimchat/vimchat.debug')
         vim.command('nnoremap <buffer> B :py VimChat.toggleBuddyList()<CR>')
         vim.command('nnoremap <buffer> <silent> <Leader>c :py VimChat.openGroupChat()<CR>')
         vim.command('let s:hasVars = VimChatCheckVars()')
@@ -133,7 +133,19 @@ class VimChatScope:
 
             self.signOn(jid,password)
 
-        self.toggleBuddyList()
+        # Connect to chat rooms.
+        # Example line in vimrc:
+        # let g:vimchat_chatrooms={'bob@jaim.at':{'name':'bobby','rooms':['vim%irc.freenode.net@irc.jaim.at','perl%irc.freenode.net@irc.jaim.at']}}
+        if vim.eval('exists("g:vimchat_chatrooms")') != '0':
+            chatrooms = vim.eval('g:vimchat_chatrooms')
+            for jid in chatrooms:
+                name = chatrooms[jid]['name']
+                for room in chatrooms[jid]['rooms']:
+                    time.sleep(2)
+                    self._openGroupChat(self.accounts[jid], room, name)
+        else:
+            self.toggleBuddyList()
+
     #}}}
 
     #CLASSES
@@ -783,7 +795,7 @@ class VimChatScope:
     #}}}
     #{{{ getTimestamp
     def getTimestamp(self):
-        return strftime("[%H:%M]")
+        return time.strftime("[%H:%M]")
     #}}}
     #{{{ getBufByName
     def getBufByName(self, name):
@@ -1134,12 +1146,13 @@ class VimChatScope:
         account = accounts[index]
         chatroom = vim.eval('input("Chat Room to join: ")')
         name = vim.eval('input("Name to Use: ")')
+        self._openGroupChat(account, chatroom, name)
+    #}}}
+    def _openGroupChat(self, account, chatroom, name):
         self.groupChatNames.append(name)
         buf = VimChat.beginChat(account._jids, chatroom, True)
         vim.command('sbuffer ' + str(buf.number))
-
         account.jabberJoinGroupChat(chatroom, name)
-    #}}}
 
     #ACCOUNT
     #{{{ showAccountList
@@ -1165,7 +1178,7 @@ class VimChatScope:
             if not os.path.exists(logDir):
                 os.makedirs(logDir)
 
-            day = strftime('%Y-%m-%d')
+            day = time.strftime('%Y-%m-%d')
             log = open(logDir + '/' + user + '-' + day, 'a')
             log.write(msg + '\n')
             log.close()
@@ -1295,6 +1308,7 @@ class VimChatScope:
     #}}}
     #{{{ messageReceived
     def messageReceived(self, account, fromJid, message, secure=False, groupChat=""):
+        now = time.time()
         #Store the buffer we were in
         origBufNum = vim.current.buffer.number
 
@@ -1323,7 +1337,9 @@ class VimChatScope:
         # vim.command("call matchadd('Error', '\%' . line('$') . 'l')")
 
         # Notify
-        self.notify(jid, message, groupChat)
+        if now - self.lastMessageTime > 1:
+            self.notify(jid, message, groupChat)
+        self.lastMessageTime = now
     #}}}
     #{{{ notify
     def notify(self, jid, msg, groupChat):
