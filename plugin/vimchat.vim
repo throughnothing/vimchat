@@ -31,6 +31,8 @@
 python <<EOF
 #{{{ Imports
 try:
+    import warnings
+    warnings.filterwarnings('ignore', category=DeprecationWarning)
     import vim
     import os, os.path, select, threading, xmpp, re, time
 except:
