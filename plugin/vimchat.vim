@@ -143,7 +143,7 @@ class VimChatScope:
             for jid in chatrooms:
                 name = chatrooms[jid]['name']
                 for room in chatrooms[jid]['rooms']:
-                    time.sleep(2)
+                    #time.sleep(2)
                     self._openGroupChat(self.accounts[jid], room, name)
         else:
             self.toggleBuddyList()
