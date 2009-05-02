@@ -60,12 +60,13 @@ except:
 
 
 gtk_enabled = False
-try:
-    from gtk import StatusIcon
-    import gtk
-    gtk_enabled = True
-except:
-    gtk_enabled = False
+if 'DISPLAY' in os.environ:
+    try:
+        from gtk import StatusIcon
+        import gtk
+        gtk_enabled = True
+    except:
+        gtk_enabled = False
 #}}}
 
 #{{{ VimChatScope
@@ -116,9 +117,7 @@ class VimChatScope:
             pyotr_logging = False
 
         isStatusIcon = int(vim.eval('g:vimchat_statusicon'))
-        if isStatusIcon == 1:
-            gtk_enabled = True
-        else:
+        if isStatusIcon != 1:
             gtk_enabled = False
 
         if gtk_enabled:
@@ -808,6 +807,7 @@ class VimChatScope:
     #}}}
     #{{{ moveCursorToBufBottom
     def moveCursorToBufBottom(self, buf):
+        return
         # Update the cursor.
         for w in vim.windows:
             if w.buffer == buf:
@@ -1071,6 +1071,11 @@ class VimChatScope:
             line = tstamp + secureString + user + ": " + lines.pop(0);
 
         buf.append(line)
+        #TODO: remove these lines
+        #line = line.replace("'", "z")
+        #vim.command("call append(line('$'),'" + line + "')")
+        #vim.command("let @m = '" + line.replace("'", "z") + "'")
+        #vim.command('put m')
         if not secure or pyotr_logging:
             VimChat.log(account, logJid, line)
 
@@ -1150,11 +1155,13 @@ class VimChatScope:
         name = vim.eval('input("Name to Use: ")')
         self._openGroupChat(account, chatroom, name)
     #}}}
+    #{{{ _openGroupChat
     def _openGroupChat(self, account, chatroom, name):
         self.groupChatNames.append(name)
         buf = VimChat.beginChat(account._jids, chatroom, True)
         vim.command('sbuffer ' + str(buf.number))
         account.jabberJoinGroupChat(chatroom, name)
+    #}}}
 
     #ACCOUNT
     #{{{ showAccountList
