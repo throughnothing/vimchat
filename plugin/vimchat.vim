@@ -87,6 +87,8 @@ class VimChatScope:
         global pynotify_enabled
         global pyotr_enabled
         global pyotr_logging
+        global gtk_enabled
+        self.gtk_enabled = gtk_enabled
 
         vim.command('redir! > ~/.vimchat/vimchat.debug')
         vim.command('nnoremap <buffer> B :py VimChat.toggleBuddyList()<CR>')
@@ -118,9 +120,9 @@ class VimChatScope:
 
         isStatusIcon = int(vim.eval('g:vimchat_statusicon'))
         if isStatusIcon != 1:
-            gtk_enabled = False
+            self.gtk_enabled = False
 
-        if gtk_enabled:
+        if self.gtk_enabled:
             self.statusIcon = self.StatusIcon()
             self.statusIcon.start()
 
@@ -1375,13 +1377,13 @@ class VimChatScope:
             n.set_timeout(10000)
             n.show()
 
-        if gtk_enabled:
+        if self.gtk_enabled:
             self.statusIcon.blink(True)
     #}}}
     #{{{ clearNotify
     def clearNotify(self):
         vim.command('set tabline&')
-        if gtk_enabled:
+        if self.gtk_enabled:
             self.statusIcon.blink(False)
     #}}}
 
