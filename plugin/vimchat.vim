@@ -1354,9 +1354,9 @@ class VimChatScope:
     #}}}
     #{{{ notify
     def notify(self, jid, msg, groupChat):
-        # Important to keep this print statement.  As a side effect, it
-        # refreshes the buffer so the new message shows up.
-        # TODO: try replacing print with echo so :messages doesn't get polluted
+        # Important to keep this echo statement.  As a side effect, it
+        # refreshes the buffer so the new message shows up. Need to find
+        # a better solution though.
         vim.command("echo 'Message Received from: " + jid.replace("'", "''")
             + "'")
 
