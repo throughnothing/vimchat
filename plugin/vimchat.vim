@@ -145,6 +145,7 @@ class VimChatScope:
                 name = chatrooms[jid]['name']
                 for room in chatrooms[jid]['rooms']:
                     #time.sleep(2)
+                    print "Joining chat room " + room + "..."
                     self._openGroupChat(self.accounts[jid], room, name)
         else:
             self.toggleBuddyList()
@@ -187,7 +188,7 @@ class VimChatScope:
             else:
                 return False
         #}}}
-        #{{{ inject_message	
+        #{{{ inject_message
         def inject_message(self, opdata=None, accountname=None, protocol=None, recipient=None, message=None):
             if accountname in VimChat.accounts.keys():
                 if recipient and message:
@@ -807,14 +808,6 @@ class VimChatScope:
                 return buf
         return None
     #}}}
-    #{{{ moveCursorToBufBottom
-    def moveCursorToBufBottom(self, buf):
-        return
-        # Update the cursor.
-        for w in vim.windows:
-            if w.buffer == buf:
-                w.cursor = (len(buf), 0)
-    #}}}
     #{{{ isGroupChat
     def isGroupChat(self):
         try:
@@ -1074,16 +1067,16 @@ class VimChatScope:
 
         buf.append(line)
         #TODO: remove these lines
-        #line = line.replace("'", "z")
+        #line = line.replace("'", "''")
         #vim.command("call append(line('$'),'" + line + "')")
-        #vim.command("let @m = '" + line.replace("'", "z") + "'")
-        #vim.command('put m')
         if not secure or pyotr_logging:
             VimChat.log(account, logJid, line)
 
         for line in lines:
             line = '\t' + line
             buf.append(line)
+            #line = line.replace("'", "''")
+            #vim.command("call append(line('$'),'" + line + "')")
             #if message is not secure, or if otr logging is on
             if not secure or pyotr_logging:
                 VimChat.log(account, logJid, line)
@@ -1163,6 +1156,13 @@ class VimChatScope:
         buf = VimChat.beginChat(account._jids, chatroom, True)
         vim.command('sbuffer ' + str(buf.number))
         account.jabberJoinGroupChat(chatroom, name)
+    #}}}
+    #{{{ moveCursorToBufBottom
+    def moveCursorToBufBottom(self, buf):
+        return
+        for w in vim.windows:
+            if w.buffer == buf:
+                w.cursor = (len(buf), 0)
     #}}}
 
     #ACCOUNT
@@ -1356,7 +1356,9 @@ class VimChatScope:
     def notify(self, jid, msg, groupChat):
         # Important to keep this print statement.  As a side effect, it
         # refreshes the buffer so the new message shows up.
-        print "Message Received from: " + jid
+        # TODO: try replacing print with echo so :messages doesn't get polluted
+        vim.command("echo 'Message Received from: " + jid.replace("'", "''")
+            + "'")
 
         if groupChat:
             myNames = map(lambda x: x.split('@')[0], self.accounts.keys())
