@@ -147,6 +147,7 @@ class VimChatScope:
                     #time.sleep(2)
                     print "Joining chat room " + room + "..."
                     self._openGroupChat(self.accounts[jid], room, name)
+            print "Done joining chat rooms."
         else:
             self.toggleBuddyList()
 
@@ -1159,6 +1160,8 @@ class VimChatScope:
     #}}}
     #{{{ moveCursorToBufBottom
     def moveCursorToBufBottom(self, buf):
+        # TODO: Need to make sure this only happens if this buffer doesn't
+        # have focus.  Otherwise, this hijacks the users cursor.
         return
         for w in vim.windows:
             if w.buffer == buf:
@@ -1308,8 +1311,6 @@ class VimChatScope:
                     if chatBuf[-1] != statusUpdateLine:
                         chatBuf.append(statusUpdateLine)
                         self.moveCursorToBufBottom(chatBuf)
-
-                        print "Presence Updated for: " + str(fullJid)
                 else:
                     #Should never get here!
                     print "Buffer did not exist for: " + fromJid
