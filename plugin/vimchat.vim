@@ -1362,12 +1362,16 @@ class VimChatScope:
             + "'")
 
         if groupChat:
+            msgLowered = msg.lower()
             myNames = map(lambda x: x.split('@')[0], self.accounts.keys())
             myNames.extend(self.groupChatNames)
+            myNames = map(lambda x: x.lower(), myNames)
             foundMyName = False
             for name in myNames:
-                if name in msg:
+                if name in msgLowered:
                     foundMyName = True
+                    print (jid + ' said your name in #'
+                        + groupChat.split('%')[0].split('@')[0])
                     break
             if not foundMyName:
                 return
