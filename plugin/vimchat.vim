@@ -35,6 +35,7 @@ try:
     warnings.filterwarnings('ignore', category=DeprecationWarning)
     import vim
     import os, os.path, select, threading, xmpp, re, time
+    import simplejson as json
 except:
     vim.command('let g:vimchat_loaded = 1')
 
@@ -92,7 +93,10 @@ class VimChatScope:
 
         vim.command('redir! > ~/.vimchat/vimchat.debug')
         vim.command('nnoremap <buffer> B :py VimChat.toggleBuddyList()<CR>')
-        vim.command('nnoremap <buffer> <silent> <Leader>c :py VimChat.openGroupChat()<CR>')
+        vim.command(
+            'nmap <buffer> <silent> <Leader>c :py VimChat.openGroupChat()<CR>')
+        vim.command(
+            'nmap <buffer> <silent> <Leader>j :py VimChat.joinChatroom()<CR>')
         vim.command('let s:hasVars = VimChatCheckVars()')
         hasVars = int(vim.eval('s:hasVars'))
 
@@ -1004,6 +1008,7 @@ class VimChatScope:
         nnoremap <buffer> <silent> <Leader>ov :py VimChat.otrVerifyBuddy()<CR>
         nnoremap <buffer> <silent> <Leader>or :py VimChat.otrSmpRespond()<CR>
         nnoremap <buffer> <silent> <Leader>c :py VimChat.openGroupChat()<CR>
+        nnoremap <buffer> <silent> <Leader>j :py VimChat.joinChatroom()<CR>
         au CursorMoved <buffer> exe 'py VimChat.clearNotify()'
         """
         vim.command(commands)
@@ -1157,6 +1162,32 @@ class VimChatScope:
         buf = VimChat.beginChat(account._jids, chatroom, True)
         vim.command('sbuffer ' + str(buf.number))
         account.jabberJoinGroupChat(chatroom, name)
+    #}}}
+    #{{{ joinChatroom
+    def joinChatroom(self):
+        try:
+            contents = open(os.path.expanduser('~/.vimchat/config')).read()
+        except IOError:
+            pass
+        data = json.loads(contents)
+        i = 0
+        for room in data['chatrooms']:
+            print str(i) + ': ' + room['account'] + ' - ' + room['room']
+            i = i + 1
+        input = vim.eval(
+            'input("Chatroom (enter the number from the above list): ")')
+        if not re.match(r'\d+$', input):
+            vim.command('echohl ErrorMsg')
+            vim.command('echo "\\nYou must enter an integer corresponding'
+                + ' to a chatroom."')
+            vim.command('echohl None')
+            return
+        index = int(input)
+        self._openGroupChat(
+            self.accounts[data['chatrooms'][index]['account']],
+            data['chatrooms'][index]['room'],
+            data['chatrooms'][index]['username'])
+
     #}}}
     #{{{ moveCursorToBufBottom
     def moveCursorToBufBottom(self, buf):
@@ -1493,6 +1524,7 @@ com! VimChatOtrSMPRespond py VimChat.otrSmpRespond()
 com! VimChatOtrGenerateKey py VimChat.otrGenerateKey()
 com! -nargs=0 VimChatSetStatus py VimChat.setStatus(<args>)
 com! VimChatShowStatus py VimChat.showStatus()
+com! VimChatJoinChatroom py VimChat.joinChatroom()
 
 set switchbuf=usetab
 
