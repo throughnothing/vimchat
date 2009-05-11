@@ -35,7 +35,10 @@ try:
     warnings.filterwarnings('ignore', category=DeprecationWarning)
     import vim
     import os, os.path, select, threading, xmpp, re, time
-    import simplejson as json
+    try:
+        import simplejson as json
+    except:
+        import json
 except:
     vim.command('let g:vimchat_loaded = 1')
 
@@ -984,12 +987,12 @@ class VimChatScope:
 
             vim.command("let b:buddyId = '" + toJid + "'")
             vim.command("let b:account = '" + fromAccount + "'")
-            self.setupChatBuffer();
+            self.setupChatBuffer(groupChat);
             return vim.current.buffer
 
     #}}}
     #{{{ setupChatBuffer
-    def setupChatBuffer(self):
+    def setupChatBuffer(self, isGroupChat):
         commands = """
         setlocal noswapfile
         setlocal buftype=nowrite
@@ -999,6 +1002,7 @@ class VimChatScope:
         setlocal filetype=vimchat
         setlocal syntax=vimchat
         setlocal wrap
+        setlocal foldmethod=marker
         nnoremap <buffer> <silent> i :py VimChat.sendBufferShow()<CR>
         nnoremap <buffer> <silent> o :py VimChat.sendBufferShow()<CR>
         nnoremap <buffer> <silent> a :py VimChat.sendBufferShow()<CR>
@@ -1012,6 +1016,8 @@ class VimChatScope:
         au CursorMoved <buffer> exe 'py VimChat.clearNotify()'
         """
         vim.command(commands)
+        if isGroupChat:
+            vim.command('setlocal foldmethod=syntax')
     #}}}
     #{{{ sendBufferShow
     def sendBufferShow(self):
@@ -1034,6 +1040,7 @@ class VimChatScope:
             setlocal nosi
             setlocal buftype=nowrite
             setlocal wrap
+            setlocal foldmethod=marker
             noremap <buffer> <silent> <CR> :py VimChat.sendMessage()<CR>
             inoremap <buffer> <silent> <CR> <Esc>:py VimChat.sendMessage()<CR>
             nnoremap <buffer> <silent> q :hide<CR>
