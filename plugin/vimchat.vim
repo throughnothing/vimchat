@@ -38,7 +38,10 @@ try:
     try:
         import simplejson as json
     except:
-        import json
+        try:
+            import json
+        except:
+            pass
 except:
     vim.command('let g:vimchat_loaded = 1')
 
