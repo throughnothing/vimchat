@@ -979,6 +979,8 @@ class VimChatScope:
 
         bExists = int(vim.eval('buflisted("' + chatFile + '")'))
         if bExists: 
+            #TODO: Need to call sbuffer only if buffer is hidden.
+            vim.command('sbuffer ' + chatFile)
             return self.getBufByName(chatFile)
         else:
             vim.command("split " + chatFile.replace('%', r'\%'))
