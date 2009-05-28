@@ -1175,30 +1175,52 @@ class VimChatScope:
         vim.command('sbuffer ' + str(buf.number))
         account.jabberJoinGroupChat(chatroom, name)
     #}}}
+    def echoError(self, msg):
+        vim.command('echohl ErrorMsg')
+        vim.command(r'echo "\n"')
+        vim.command("echo '" + msg.replace("'", "''") + "'")
+        vim.command('echohl None')
     #{{{ joinChatroom
     def joinChatroom(self):
+        filePath = os.path.expanduser('~/.vimchat/config')
         try:
-            contents = open(os.path.expanduser('~/.vimchat/config')).read()
-        except IOError:
-            pass
-        data = json.loads(contents)
+            contents = open(filePath).read()
+        except:
+            self.echoError('Error: unable to open ' + filePath)
+            return
+        try:
+            data = json.loads(contents)
+            chatrooms = data['chatrooms']
+            assert type(chatrooms) == list
+            assert len(chatrooms) > 0
+        except:
+            self.echoError('Error: ' + filePath + ' contains invalid json')
+            return
+
         i = 0
-        for room in data['chatrooms']:
+        for room in chatrooms:
             print str(i) + ': ' + room['account'] + ' - ' + room['room']
             i = i + 1
         input = vim.eval(
-            'input("Chatroom (enter the number from the above list): ")')
-        if not re.match(r'\d+$', input):
-            vim.command('echohl ErrorMsg')
-            vim.command('echo "\\nYou must enter an integer corresponding'
-                + ' to a chatroom."')
-            vim.command('echohl None')
+            'input("Enter a comma separated list of room numbers(or `all`): ")')
+        if not re.match(r'\d+(\s*,\s*\d+\s*)*$', input) and input != 'all':
+            self.echoError("Error: "
+                + "You must enter a comma separated list of numbers or `all`.")
             return
-        index = int(input)
-        self._openGroupChat(
-            self.accounts[data['chatrooms'][index]['account']],
-            data['chatrooms'][index]['room'],
-            data['chatrooms'][index]['username'])
+
+        if input == 'all':
+            roomNumbers = range(len(chatrooms))
+        else:
+            roomNumbers = input.split(',')
+        for token in roomNumbers:
+            index = int(token)
+            if chatrooms and len(chatrooms) > index:
+                self._openGroupChat(
+                    self.accounts[chatrooms[index]['account']],
+                    chatrooms[index]['room'],
+                    chatrooms[index]['username'])
+            else:
+                print 'Error: [%s] is an invalid chatroom number.' % (index)
 
     #}}}
     #{{{ moveCursorToBufBottom
