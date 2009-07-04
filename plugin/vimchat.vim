@@ -34,7 +34,8 @@ try:
     import warnings
     warnings.filterwarnings('ignore', category=DeprecationWarning)
     import vim
-    import os, os.path, select, threading, xmpp, re, time
+    import os, os.path, select, threading, xmpp, re, time, sys
+    from  ConfigParser import RawConfigParser
     try:
         import simplejson as json
     except:
@@ -96,6 +97,7 @@ class VimChatScope:
         global pyotr_logging
         global gtk_enabled
         self.gtk_enabled = gtk_enabled
+        self.configFilePath = os.path.expanduser('~/.vimchat/config')
 
         vim.command('redir! > ~/.vimchat/vimchat.debug')
         vim.command('nnoremap <buffer> B :py VimChat.toggleBuddyList()<CR>')
@@ -136,30 +138,25 @@ class VimChatScope:
             self.statusIcon = self.StatusIcon()
             self.statusIcon.start()
 
-        #Get JID's/Passwords
+        # Signon to accounts listed in .vimrc
         vimChatAccounts = vim.eval('g:vimchat_accounts')
-        numAccounts = str(len(vimChatAccounts))
-        print numAccounts + " accounts found..."
         for jid,password in vimChatAccounts.items():
+            pass
             if password == '':
                 password = vim.eval('inputsecret("' + jid + ' password: ")')
-
             self.signOn(jid,password)
 
-        # Connect to chat rooms.
-        # Example line in vimrc:
-        # let g:vimchat_chatrooms={'bob@jaim.at':{'name':'bobby','rooms':['vim%irc.freenode.net@irc.jaim.at','perl%irc.freenode.net@irc.jaim.at']}}
-        if vim.eval('exists("g:vimchat_chatrooms")') != '0':
-            chatrooms = vim.eval('g:vimchat_chatrooms')
-            for jid in chatrooms:
-                name = chatrooms[jid]['name']
-                for room in chatrooms[jid]['rooms']:
-                    #time.sleep(2)
-                    print "Joining chat room " + room + "..."
-                    self._openGroupChat(self.accounts[jid], room, name)
-            print "Done joining chat rooms."
-        else:
-            self.toggleBuddyList()
+        # Signon to accounts listed in .vimchat/config
+        if os.path.exists(self.configFilePath):
+            config = RawConfigParser();
+            config.read(self.configFilePath)
+            if config.has_section('accounts'):
+                for jid in config.options('accounts'):
+                    password = config.get('accounts', jid)
+                    if not password:
+                        password = vim.eval(
+                            'inputsecret("' + jid + ' password: ")')
+                    self.signOn(jid, password)
 
     #}}}
 
@@ -1175,53 +1172,50 @@ class VimChatScope:
         vim.command('sbuffer ' + str(buf.number))
         account.jabberJoinGroupChat(chatroom, name)
     #}}}
+    #{{{
     def echoError(self, msg):
         vim.command('echohl ErrorMsg')
         vim.command(r'echo "\n"')
         vim.command("echo '" + msg.replace("'", "''") + "'")
         vim.command('echohl None')
+    #}}}
     #{{{ joinChatroom
     def joinChatroom(self):
-        filePath = os.path.expanduser('~/.vimchat/config')
-        try:
-            contents = open(filePath).read()
-        except:
-            self.echoError('Error: unable to open ' + filePath)
-            return
-        try:
-            data = json.loads(contents)
-            chatrooms = data['chatrooms']
-            assert type(chatrooms) == list
-            assert len(chatrooms) > 0
-        except:
-            self.echoError('Error: ' + filePath + ' contains invalid json')
+        if not os.path.exists(self.configFilePath):
+            print 'Error: Config file %s does not exist' % (self.configFilePath)
             return
 
-        i = 0
+        chatrooms = {}
+        try:
+            config = RawConfigParser()
+            config.read(self.configFilePath)
+            for section in config.sections():
+                if not section.startswith('chatroom:'):
+                    continue
+                tokens = section.split(':')
+                if len(tokens) < 2:
+                    continue
+                roomAlias = tokens[1]
+                data = {}
+                data['account'] = config.get(section, 'account')
+                data['room'] = config.get(section, 'room')
+                data['username'] = config.get(section, 'username')
+                chatrooms[roomAlias] = data
+        except:
+            print 'Error: Problems reading the vimchat config %s.'\
+                % (self.configFilePath)
+            print sys.exc_info()[0], sys.exc_info()[1]
+            return
+
         for room in chatrooms:
-            print str(i) + ': ' + room['account'] + ' - ' + room['room']
-            i = i + 1
+            print room
         input = vim.eval(
-            'input("Enter a comma separated list of room numbers(or `all`): ")')
-        if not re.match(r'\d+(\s*,\s*\d+\s*)*$', input) and input != 'all':
-            self.echoError("Error: "
-                + "You must enter a comma separated list of numbers or `all`.")
-            return
-
-        if input == 'all':
-            roomNumbers = range(len(chatrooms))
+            'input("Enter the room name from the above list: ")')
+        if input in chatrooms:
+            self._openGroupChat(self.accounts[chatrooms[input]['account']],
+                chatrooms[input]['room'], chatrooms[input]['username'])
         else:
-            roomNumbers = input.split(',')
-        for token in roomNumbers:
-            index = int(token)
-            if chatrooms and len(chatrooms) > index:
-                self._openGroupChat(
-                    self.accounts[chatrooms[index]['account']],
-                    chatrooms[index]['room'],
-                    chatrooms[index]['username'])
-            else:
-                print 'Error: [%s] is an invalid chatroom number.' % (index)
-
+            print 'Error: [%s] is an invalid chatroom.' % (input)
     #}}}
     #{{{ moveCursorToBufBottom
     def moveCursorToBufBottom(self, buf):
