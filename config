@@ -2,10 +2,12 @@
 # edit and write this file and vimchat will update itself on the fly.
 #
 # Accounts entries are in the form: username@server/resource = password.
-# The /resource and password are optional.  If you leave the password blank,
-# vimchat will prompt you for it when you connect. This accounts will be
-# connected to automatically when vimchat starts.  You may connect or
-# disconnect from a particular account with \on and \off.
+# The '/resource' part of the account is optional.  It is a jabber feature that
+# lets you associate physical locations with your accounts.  The password is
+# optional as well.  If you leave the password blank, vimchat will prompt you
+# for it when you connect. These accounts will be connected to automatically
+# when vimchat starts.  You may connect or disconnect from a particular account
+# with \on and \off.
 
 [accounts]
 #bob@gmail.com =

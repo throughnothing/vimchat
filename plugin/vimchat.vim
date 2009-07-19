@@ -18,12 +18,11 @@
 "
 " Supported ~/.vimrc Variables:
 "   g:vimchat_accounts = {'jabber id':'password',...}
-"
 "   g:vimchat_buddylistwidth = width of buddy list
 "   g:vimchat_libnotify = (0 or 1) default is 1
 "   g:vimchat_logpath = path to store log files
 "   g:vimchat_logchats = (0 or 1) default is 1
-"   g:vimchat_otr = (0 or 1) default is 1
+"   g:vimchat_otr = (0 or 1) default is 0
 "   g:vimchat_logotr = (0 or 1) default is 1
 "   g:vimchat_statusicon = (0 or 1) default is 1
 
@@ -136,12 +135,10 @@ class VimChatScope:
             self.statusIcon.start()
 
         # Signon to accounts listed in .vimrc
-        vimChatAccounts = vim.eval('g:vimchat_accounts')
-        for jid,password in vimChatAccounts.items():
-            pass
-            if password == '':
-                password = vim.eval('inputsecret("' + jid + ' password: ")')
-            self._signOn(jid,password)
+        if vim.eval("exists('g:vimchat_accounts')") == '1':
+            vimChatAccounts = vim.eval('g:vimchat_accounts')
+            for jid,password in vimChatAccounts.items():
+                self._signOn(jid,password)
 
         # Signon to accounts listed in .vimchat/config
         if os.path.exists(self.configFilePath):
@@ -150,9 +147,6 @@ class VimChatScope:
             if config.has_section('accounts'):
                 for jid in config.options('accounts'):
                     password = config.get('accounts', jid)
-                    if not password:
-                        password = vim.eval(
-                            'inputsecret("' + jid + ' password: ")')
                     self._signOn(jid, password)
 
     #}}}
@@ -1637,10 +1631,6 @@ set switchbuf=usetab
 "}}}
 "{{{ VimChatCheckVars
 fu! VimChatCheckVars()
-    if !exists('g:vimchat_accounts')
-        echo "Must set g:vimchat_accounts in ~/.vimrc!"
-        return 0
-    endif
     if !exists('g:vimchat_buddylistwidth')
         let g:vimchat_buddylistwidth=30
     endif
@@ -1654,7 +1644,7 @@ fu! VimChatCheckVars()
         let g:vimchat_logchats=1
     endif
     if !exists('g:vimchat_otr')
-        let g:vimchat_otr=1
+        let g:vimchat_otr=0
     endif
     if !exists('g:vimchat_logotr')
         let g:vimchat_logotr=1
