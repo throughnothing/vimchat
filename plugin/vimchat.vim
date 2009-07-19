@@ -101,11 +101,8 @@ class VimChatScope:
 
         vim.command('redir! > ~/.vimchat/vimchat.debug')
         vim.command('nnoremap <buffer> B :py VimChat.toggleBuddyList()<CR>')
-        vim.command(
-            'nmap <buffer> <silent> <Leader>c :py VimChat.openGroupChat()<CR>')
-        vim.command(
-            'nmap <buffer> <silent> <Leader>j :py VimChat.joinChatroom()<CR>')
         vim.command('let s:hasVars = VimChatCheckVars()')
+        self.setupLeaderMappings()
         hasVars = int(vim.eval('s:hasVars'))
 
         if hasVars < 1:
@@ -144,7 +141,7 @@ class VimChatScope:
             pass
             if password == '':
                 password = vim.eval('inputsecret("' + jid + ' password: ")')
-            self.signOn(jid,password)
+            self._signOn(jid,password)
 
         # Signon to accounts listed in .vimchat/config
         if os.path.exists(self.configFilePath):
@@ -156,7 +153,7 @@ class VimChatScope:
                     if not password:
                         password = vim.eval(
                             'inputsecret("' + jid + ' password: ")')
-                    self.signOn(jid, password)
+                    self._signOn(jid, password)
 
     #}}}
 
@@ -471,6 +468,7 @@ class VimChatScope:
                 show = str(unicode(msg.getShow()).encode('utf-8'))
                 status = str(unicode(msg.getStatus()).encode('utf-8'))
                 priority = str(unicode(msg.getPriority()).encode('utf-8'))
+                #print fromJid, ' jid: ', msg.getJid(), ' status: ', status, ' reason: ', msg.getReason(), ' stat code: ', msg.getStatusCode()
 
                 if show == "None":
                     if priority != "None":
@@ -557,6 +555,10 @@ class VimChatScope:
                 self.jabber.disconnect()
             except:
                 pass
+        #}}}
+        #{{{ isConnected
+        def isConnected(self):
+            return self.jabber.isConnected()
         #}}}
 
         #Roster Functions
@@ -731,13 +733,31 @@ class VimChatScope:
 
     #CONNECTION FUNCTIONS
     #{{{ signOn
-    def signOn(self, jid, password):
-        [jidSmall,user,resource] = self.getJidParts(jid)
-        if jidSmall in self.accounts.keys():
-            print "Already connected!"
-            return 0
+    def signOn(self):
+        accounts = self.getAccountsFromConfig()
+        if len(accounts) == 0:
+            print 'No acounts found in the vimchat config %s.'\
+                % (self.configFilePath)
+            return
+        for account in accounts:
+            print account
+        account = vim.eval(
+            'input("Enter the account from the above list: ")')
+        if account in accounts:
+            password = accounts[account]
+            self._signOn(account, password)
         else:
-            print "Connecting user " + jid + "..."
+            print 'Error: [%s] is an invalid account.' % (account)
+    #}}}
+    #{{{ _signOn
+    def _signOn(self, jid, password):
+        if not password:
+            password = vim.eval('inputsecret("' + account + ' password: ")')
+        [jidSmall,user,resource] = self.getJidParts(jid)
+        print "Connecting user " + jid + "..."
+        if jidSmall in self.accounts:
+            try: self.accounts[jidSmall].disconnect()
+            except: pass
 
         JID=xmpp.protocol.JID(jid)
         jabberClient = xmpp.Client(JID.getDomain(),debug=[])
@@ -757,25 +777,41 @@ class VimChatScope:
         roster = jabberClient.getRoster()
 
         [accountJid,user,resource] = self.getJidParts(jid)
-        self.accounts[accountJid] = \
-            self.JabberConnection(
-                self, jid, jabberClient, roster)
+        if accountJid in self.accounts:
+            try:
+                self.accounts[accountJid].disconnect()
+            except: pass
+        self.accounts[accountJid] = self.JabberConnection(
+            self, jid, jabberClient, roster)
         self.accounts[accountJid].start()
 
         print "Connected with " + jid
     #}}}
     #{{{ signOff
     def signOff(self):
-        for jid,account in self.accounts.items():
+        accounts = self.accounts
+        if len(accounts) == 0:
+            print 'No acounts found'
+            return
+        for account in accounts:
+            print account
+        account = vim.eval(
+            'input("Enter the account from the above list: ")')
+        self._signOff(account)
+    #}}}
+    #{{{ _signOff
+    def _signOff(self, account):
+        accounts = self.accounts
+        if account in accounts:
             try:
-                account.disconnect()
+                accounts[account].disconnect()
+                del accounts[account]
                 print "Signed Off VimChat!"
-                del self.accounts[account]
-            except Exception, e:
-                print "Error signing off VimChat!"
-                print e
+            except:
+                print "Error signing off %s VimChat!" % (account)
+                print sys.exc_info()[0:2]
         else:
-            print "Not Connected!"
+            print 'Error: [%s] is an invalid account.' % (account)
     #}}}
     #{{{ showStatus
     def showStatus(self):
@@ -877,6 +913,7 @@ class VimChatScope:
         """
 
         vim.command(commands)
+        self.setupLeaderMappings()
 
         self.buddyListBuffer = vim.current.buffer
     #}}}
@@ -920,6 +957,15 @@ class VimChatScope:
         rF = codecs.open(self.rosterFile,'w','utf-16')
 
         for curJid, account in self.accounts.items():
+            if not account.isConnected():
+                rF.write(
+u"""
+******************************
+ERROR: %s IS NOT CONNECTED!!!
+You can type \on to reconnect.
+******************************
+""" % (curJid))
+                continue
             accountText = u"{{{ [+] %s\n"%(curJid)
             rF.write(accountText)
 
@@ -994,7 +1040,7 @@ class VimChatScope:
 
     #}}}
     #{{{ setupChatBuffer
-    def setupChatBuffer(self, isGroupChat):
+    def setupChatBuffer(self, isGroupChat=False):
         commands = """
         setlocal noswapfile
         setlocal buftype=nowrite
@@ -1010,16 +1056,25 @@ class VimChatScope:
         nnoremap <buffer> <silent> a :py VimChat.sendBufferShow()<CR>
         nnoremap <buffer> <silent> B :py VimChat.toggleBuddyList()<CR>
         nnoremap <buffer> <silent> q :py VimChat.deleteChat()<CR>
+        au CursorMoved <buffer> exe 'py VimChat.clearNotify()'
+        """
+        vim.command(commands)
+        self.setupLeaderMappings()
+        if isGroupChat:
+            vim.command('setlocal foldmethod=syntax')
+    #}}}
+    #{{{ setupLeaderMappings
+    def setupLeaderMappings(self):
+        commands = """
         nnoremap <buffer> <silent> <Leader>l :py VimChat.openLogFromChat()<CR>
         nnoremap <buffer> <silent> <Leader>ov :py VimChat.otrVerifyBuddy()<CR>
         nnoremap <buffer> <silent> <Leader>or :py VimChat.otrSmpRespond()<CR>
         nnoremap <buffer> <silent> <Leader>c :py VimChat.openGroupChat()<CR>
         nnoremap <buffer> <silent> <Leader>j :py VimChat.joinChatroom()<CR>
-        au CursorMoved <buffer> exe 'py VimChat.clearNotify()'
+        nnoremap <buffer> <silent> <Leader>on :py VimChat.signOn()<CR>
+        nnoremap <buffer> <silent> <Leader>off :py VimChat.signOff()<CR>
         """
         vim.command(commands)
-        if isGroupChat:
-            vim.command('setlocal foldmethod=syntax')
     #}}}
     #{{{ sendBufferShow
     def sendBufferShow(self):
@@ -1172,7 +1227,7 @@ class VimChatScope:
         vim.command('sbuffer ' + str(buf.number))
         account.jabberJoinGroupChat(chatroom, name)
     #}}}
-    #{{{
+    #{{{ echoError
     def echoError(self, msg):
         vim.command('echohl ErrorMsg')
         vim.command(r'echo "\n"')
@@ -1239,6 +1294,23 @@ class VimChatScope:
 
         return accounts
     #}}}
+    #{{{ getAccountsFromConfig
+    def getAccountsFromConfig(self):
+        accounts = {}
+        if not os.path.exists(self.configFilePath):
+            print 'Error: Config file %s does not exist' % (self.configFilePath)
+            return {}
+        try:
+            config = RawConfigParser()
+            config.read(self.configFilePath)
+            for account in config.options('accounts'):
+                accounts[account] = config.get('accounts', account)
+        except:
+            print 'Error reading accounts from the vimchat config %s.'\
+                % (self.configFilePath), sys.exc_info()[0:2]
+            return {}
+        return accounts
+    #}}}
 
     #LOGGING
     #{{{ log
@@ -1263,7 +1335,11 @@ class VimChatScope:
     #}}}
     #{{{ openLogFromChat
     def openLogFromChat(self):
-        jid = vim.eval('b:buddyId')
+        try:
+            jid = vim.eval('b:buddyId')
+        except:
+            print "You may only open the log from a chat buffer"
+            return
         account = vim.eval('b:account')
         if jid != '' and account != '':
             VimChat.openLog(account, jid)
@@ -1379,7 +1455,6 @@ class VimChatScope:
     #}}}
     #{{{ messageReceived
     def messageReceived(self, account, fromJid, message, secure=False, groupChat=""):
-        now = time.time()
         #Store the buffer we were in
         origBufNum = vim.current.buffer.number
 
@@ -1400,17 +1475,22 @@ class VimChatScope:
         else:
             buf = VimChat.beginChat(account, jid)
 
-        VimChat.appendMessage(account, buf, message, fromJid, secure)
+        try:
+            VimChat.appendMessage(account, buf, message, fromJid, secure)
+        except:
+            print 'Error zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'
+            print 'could not appendMessage:', message, 'from:', fromJid
 
         # Highlight the line.
         # TODO: This only works if the right window has focus.  Otherwise it
         # highlights the wrong lines.
         # vim.command("call matchadd('Error', '\%' . line('$') . 'l')")
 
-        # Notify
-        if now - self.lastMessageTime > 1:
+        try:
             self.notify(jid, message, groupChat)
-        self.lastMessageTime = now
+        except:
+            print 'Error zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'
+            print 'could not notify:', message, 'from:', jid
     #}}}
     #{{{ notify
     def notify(self, jid, msg, groupChat):
@@ -1542,8 +1622,6 @@ endif
 let g:vimchat_loaded = 1
 
 com! VimChat py VimChat.init() 
-com! VimChatSignOn py VimChat.signOn()
-com! VimChatSignOff py VimChat.signOff()
 com! VimChatBuddyList py VimChat.toggleBuddyList()
 com! VimChatViewLog py VimChat.openLogFromChat()
 com! VimChatJoinGroupChat py VimChat.openGroupChat()
