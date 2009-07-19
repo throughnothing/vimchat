@@ -1,0 +1,34 @@
+# This is the vimchat config file. Note that while vimchat is running, you can
+# edit and write this file and vimchat will update itself on the fly.
+#
+# Accounts entries are in the form: username@server/resource = password.
+# The /resource and password are optional.  If you leave the password blank,
+# vimchat will prompt you for it when you connect. This accounts will be
+# connected to automatically when vimchat starts.  You may connect or
+# disconnect from a particular account with \on and \off.
+
+[accounts]
+#bob@gmail.com =
+#bob@jaim.at = password
+#bob@jabber.no = password
+#bob@max06.de = password
+#bob@jabber1.acme.com/vimchat = password
+
+# Here you may list groupchat and irc rooms.
+# The format is [chatroom:alias] where alias is what you will use to refer to it
+# when you want to join a room. To join a room, type \j in vimchat.
+
+#[chatroom:work]
+#account = bob@jabber1.acme.com
+#room = messaging@chat.jabber1.acme.com
+#username = bobbypunjabi
+#
+#[chatroom:perl]
+#account = bob@jaim.at
+#room = perl%irc.freenode.net@irc.jaim.at
+#username = bobby
+#
+#[chatroom:vim]
+#account = bob@jaim.at
+#room = vim%irc.freenode.net@irc.jaim.at
+#username = bobby
