@@ -746,7 +746,7 @@ class VimChatScope:
     #{{{ _signOn
     def _signOn(self, jid, password):
         if not password:
-            password = vim.eval('inputsecret("' + account + ' password: ")')
+            password = vim.eval('inputsecret("' + jid + ' password: ")')
         [jidSmall,user,resource] = self.getJidParts(jid)
         print "Connecting user " + jid + "..."
         if jidSmall in self.accounts:
