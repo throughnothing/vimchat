@@ -79,3 +79,8 @@ __Optional ~/.vimrc Variables:__
 * let g:vimchat\_blinktimeout = timeout in seconds default is -1
 * let g:vimchat\_buddylistmaxwidth = max width of buddy list window default ''
 * let g:vimchat\_timestampformat = format of the message timestamp default "[%H:%M]" 
+
+# Contributors 
+
+* Philipp [philsmd](https://github.com/philsmd)
+* Michael Dillon [michaelcdillon](https://github.com/michaelcdillon)
