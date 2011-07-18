@@ -15,7 +15,7 @@ Vimchat can use a status icon in the system tray that will blink when you receiv
 # Requirements
 
 * linux or Mac OS X
-* vim
+* vim >= 7.3.254
 * python-xmpp
 
 # Suggested
