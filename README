@@ -1,5 +1,0 @@
-See http://code.google.com/p/vimchat for the current installation and usage instructions.  You may also find ironcamel on the #vim irc channel at freenode.net.
-
-Installation:
-chmod +x install.sh
-./install.sh
