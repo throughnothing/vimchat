@@ -18,12 +18,18 @@ Vimchat can use a status icon in the system tray that will blink when you receiv
 * vim >= 7.3.254
 * python-xmpp
 
-# Suggested
+Suggested libraries:
 
 * python-gtk2
 * python-notify
 * python-dns
 * growl (for OSX only)
+
+This works on linux and Mac (tested with MacVim, but required a recompile against newer python libraries). You must have python support in vim, and you must have xmpppy installed (the python-xmpp package in most distros). The python-notify package is not necessary, but if it is installed, you will get pretty libnotify alerts for new messages. It also throws some warning messages if you do not have python-dns installed (though it will still work without it). The python-gtk2 package is needed if you want a status icon in your system tray that blinks when new messages arrive.
+
+If you are running ubuntu linux, here is a command you can run to install all the dependencies:
+
+    sudo apt-get install vim-gtk python-xmpp python-notify python-dns python-gtk2
 
 # Installation
 
