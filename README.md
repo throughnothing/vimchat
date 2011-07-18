@@ -1,3 +1,9 @@
+# About
+
+Vimchat is a vim plugin that allows you to do instant messaging from within the vim text editor. Note that this only works with vim, not gvim.
+
+[Screenshot 1](http://ironcamel.com/files/vimchat1.png) [Screenshot 2](http://ironcamel.com/files/vimchat2.png)
+
 # Features
 
 Vimchat allows you to easily connect to jabber servers such as Google Talk. It is also possible to connect to other services such as IRC, AIM, ICQ, and MSN. You just need to set up jabber transports.
