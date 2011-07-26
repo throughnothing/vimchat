@@ -129,9 +129,7 @@ class VimChatScope:
 
         #Libnotify
         libnotify = int(vim.eval('g:vimchat_libnotify'))
-        if libnotify == 1 and pynotify_enabled:
-            pynotify_enabled = True
-        else:
+        if not libnotify:
             pynotify_enabled = False
         
         #Growl Setup
