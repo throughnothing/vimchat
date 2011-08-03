@@ -212,8 +212,8 @@ class VimChatScope:
 
             if accountname in VimChat.accounts.keys():
                 if recipient:
-                    priority = VimChat. \
-                        accounts[accountname]._roster.getPriority(recipient)
+                    roster = VimChat.accounts[accountname]._roster
+                    priority = roster.getPriority(recipient)
                     if priority:
                         return True
                     return False
