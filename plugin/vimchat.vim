@@ -1529,8 +1529,8 @@ You can type \on to reconnect.
     def setStatus(self, status=None):
         if not status:
             status = str(
-            vim.eval('input("Status: (away,xa,dnd,chat),message,priority: ")')
-            )
+                vim.eval('input("Status: (away,xa,dnd,chat),message,\
+                priority: ")'))
 
         parts = status.split(',')
         show = parts[0]
@@ -1570,7 +1570,7 @@ You can type \on to reconnect.
                 bExists = int(vim.eval('buflisted("' + chatFile + '")'))
                 if chatBuf and bExists:
                     statusUpdateLine = self.formatPresenceUpdateLine(fullJid,
-                    show,status)
+                        show,status)
                     if chatBuf[-1] != statusUpdateLine:
                         chatBuf.append(statusUpdateLine)
                         self.moveCursorToBufBottom(chatBuf)
