@@ -33,6 +33,7 @@
 
 python <<EOF
 try:
+    from collections import defaultdict
     from  ConfigParser import RawConfigParser
     import os
     import re
@@ -536,8 +537,8 @@ class VimChatScope:
                         str(show)):
                         VimChat.pyNotification('Presence event',"<b>"+onlineUser+
                         "</b>\nis now "+str(show),'dialog-information')
-                VimChat.presenceUpdate(self._jids,accountName,chat,show,status,
-                    priority)
+                VimChat.presenceUpdate(self._jids, accountName, chat, show,
+                    status, priority)
             except:
                 pass
 
