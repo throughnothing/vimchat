@@ -1021,12 +1021,12 @@ class VimChatScope:
         for curJid, account in self.accounts.items():
             if not account.isConnected():
                 rF.write(
-u"""
-******************************
-ERROR: %s IS NOT CONNECTED!!!
-You can type \on to reconnect.
-******************************
-""" % (curJid))
+                    u"""
+                    ******************************
+                    ERROR: %s IS NOT CONNECTED!!!
+                    You can type \on to reconnect.
+                    ******************************
+                    """ % (curJid))
                 continue
             accountText = u"{{{ [+] %s\n"%(curJid)
             rF.write(accountText)
@@ -1054,7 +1054,6 @@ You can type \on to reconnect.
                     priority = u''
                 if not groups:
                     groups = u''
-                
                 if show != u'off':
                     buddyText =\
                         u"{{{ (%s) %s\n\t%s \n\tGroups: %s\n\t%s:\n%s\n}}}\n" %\
@@ -1483,7 +1482,8 @@ You can type \on to reconnect.
         except Exception, e:
             print "Error in presenceUpdate: " + str(e)
 
-    def messageReceived(self, account, fromJid, message, secure=False, groupChat=""):
+    def messageReceived(self, account, fromJid, message, secure=False,
+        groupChat=""):
         #Store the buffer we were in
         origBufNum = vim.current.buffer.number
 
