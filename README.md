@@ -81,6 +81,12 @@ __Optional ~/.vimrc Variables:__
 * let g:vimchat\_buddylistmaxwidth = max width of buddy list window default ''
 * let g:vimchat\_timestampformat = format of the message timestamp default "[%H:%M]" 
 
+# Hacking
+Keep all lines to 80 characters wide or less
+All python code should follow pep8 guidelines
+All new features should update documentation in the README
+
+
 # Contributors 
 
 * Philipp [philsmd](https://github.com/philsmd)
