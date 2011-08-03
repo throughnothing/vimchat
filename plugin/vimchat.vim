@@ -1547,7 +1547,7 @@ You can type \on to reconnect.
         # update Icon if there are several icons available
         if self.statusIcon != None: 
             self.statusIcon.changeStatus(show)
-        print "Updated status to: "+str(priority)+" -- "+show + " -- "+staths
+        print "Updated status to: "+str(priority)+" -- "+show + " -- "+status
     #}}}
 
     #INCOMING
