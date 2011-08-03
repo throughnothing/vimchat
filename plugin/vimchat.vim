@@ -28,7 +28,8 @@
 "   g:vimchat_blinktimeout = timeout in seconds default is -1
 "   g:vimchat_buddylistmaxwidth = max width of buddy list window default ''
 "   g:vimchat_timestampformat = format of the msg timestamp default "[%H:%M]" 
-
+"   g:vimchat_showPresenceNotification =
+"       notify if buddy changed status default ""
 
 python <<EOF
 try:
@@ -106,6 +107,7 @@ class VimChatScope:
     lastMessageTime = 0
     blinktimeout = -1
     timeformat = "[%H:%M]"
+    oldShowList = {}
 
     def init(self):
         global pynotify_enabled
@@ -131,9 +133,7 @@ class VimChatScope:
 
         #Libnotify
         libnotify = int(vim.eval('g:vimchat_libnotify'))
-        if libnotify == 1:
-            pynotify_enabled = True
-        else:
+        if not libnotify:
             pynotify_enabled = False
 
         #Growl Setup
@@ -514,18 +514,30 @@ class VimChatScope:
                     else:
                         show = 'offline'
 
+                accountName = ""
+                chat = ""
                 if type == "groupchat":
                     parts = fromJid.split('/')
-                    chatroom = parts[0]
+                    # in this case it is equal to the chatroom
+                    accountName = str(parts[0])
                     user = ""
                     if len(parts) > 1:
                         user = parts[1]
-
-                    VimChat.presenceUpdate(self._jids,
-                        str(chatroom), str(user), show,status,priority)
+                    chat = str(user)
                 else:
-                    VimChat.presenceUpdate(self._jids,
-                        str(fromJid), fromJid,show,status,priority)
+                    accountName = str(fromJid)
+                    chat = fromJid
+
+                # notify if somebody is now available
+                if str(vim.eval('g:vimchat_showPresenceNotification')).find(
+                        str(show)) != -1:
+                    onlineUser = VimChat.getJidParts(accountName)[0]
+                    if VimChat.hasBuddyShowChanged(self._jids, onlineUser, 
+                        str(show)):
+                        VimChat.pyNotification('Presence event',"<b>"+onlineUser+
+                        "</b>\nis now "+str(show),'dialog-information')
+                VimChat.presenceUpdate(self._jids,accountName,chat,show,status,
+                    priority)
             except:
                 pass
 
@@ -1013,6 +1025,17 @@ class VimChatScope:
         self.writeBuddyList()
         vim.command("silent e!")
 
+    def hasBuddyShowChanged(self,accountJid,jid,showNew):
+        showList = self.oldShowList
+        if showList != None:
+            account = showList.get(accountJid)
+            if account != None:
+                showOld = str(account.get(jid))
+                if account.get('online-since')+6 < int(time.time()) and \
+                    showOld != showNew:
+                    return True
+        return False
+
     def writeBuddyList(self):
         #write roster to file
         import codecs
@@ -1457,7 +1480,7 @@ class VimChatScope:
 
     def presenceUpdate(self, account, chat, fromJid, show, status, priority):
         try:
-            #Only care if we have the chat window open
+            # update chat window
             fullJid = fromJid
             [fromJid,user,resource] = self.getJidParts(fromJid)
             [chat,nada,nada2] = self.getJidParts(fromJid)
@@ -1472,13 +1495,21 @@ class VimChatScope:
                 chatBuf = self.getBufByName(chatFile)
                 bExists = int(vim.eval('buflisted("' + chatFile + '")'))
                 if chatBuf and bExists:
-                    statusUpdateLine = self.formatPresenceUpdateLine(fullJid,show,status)
+                    statusUpdateLine = self.formatPresenceUpdateLine(fullJid,
+                        show,status)
                     if chatBuf[-1] != statusUpdateLine:
                         chatBuf.append(statusUpdateLine)
                         self.moveCursorToBufBottom(chatBuf)
                 else:
                     #Should never get here!
                     print "Buffer did not exist for: " + fromJid
+
+            # update old show list
+            if len(self.oldShowList)<1:
+                self.oldShowList = defaultdict(dict)
+            self.oldShowList[account][chat] = show
+            if not self.oldShowList[account].get('online-since'):
+                self.oldShowList[account]['online-since'] = int(time.time())
         except Exception, e:
             print "Error in presenceUpdate: " + str(e)
 
@@ -1545,17 +1576,19 @@ class VimChatScope:
 
         vim.command("set tabline=%#Error#New-message-from-" + jid)
 
-        if pynotify_enabled and 'DBUS_SESSION_BUS_ADDRESS' in os.environ:
-            pynotify.init('vimchat')
-            n = pynotify.Notification(jid + ' says: ', msg, 'dialog-warning')
-            n.set_timeout(10000)
-            n.show()
-
+        self.pyNotification(jid+' says: ', msg, 'dialog-warning');
         if self.gtk_enabled:
             self.statusIcon.blink(True)
             if self.blinktimeout != -1:
                 thr1 = self.BlinkClearer(self.blinktimeout)
                 thr1.start()
+
+    def pyNotification(self, subject, msg, type):
+        if pynotify_enabled:
+            pynotify.init('vimchat')
+            n = pynotify.Notification(subject, msg, type)
+            n.set_timeout(10000)
+            n.show()
 
     def clearNotify(self):
         vim.command('set tabline&')
@@ -1689,6 +1722,9 @@ fu! VimChatCheckVars()
     if !exists('g:vimchat_timestampformat')
         let g:vimchat_timestampformat="[%H:%M]"
     endif 
+    if !exists('g:vimchat_showPresenceNotification')
+        let g:vimchat_showPresenceNotification=""
+    endif
 
     return 1
 endfu
