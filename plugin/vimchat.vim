@@ -2,7 +2,7 @@
 " This plugin allows you to connect to jabber servers and chat with
 " multiple people.
 "
-" It does not currently support other IM networks or group chat, 
+" It does not currently support other IM networks or group chat,
 " but these are on the list to be added.
 "
 " It is also worth noting that you can use aim/yahoo via jabber transports,
@@ -27,17 +27,25 @@
 "   g:vimchat_statusicon = (0 or 1) default is 1
 "   g:vimchat_blinktimeout = timeout in seconds default is -1
 "   g:vimchat_buddylistmaxwidth = max width of buddy list window default ''
-"   g:vimchat_timestampformat = format of the message timestamp default "[%H:%M]" 
+"   g:vimchat_timestampformat = format of the msg timestamp default "[%H:%M]" 
 
 
 python <<EOF
 #{{{ Imports
 try:
-    import warnings
-    warnings.filterwarnings('ignore', category=DeprecationWarning)
-    import vim
-    import os, os.path, select, threading, xmpp, re, time, sys
     from  ConfigParser import RawConfigParser
+    import os
+    import re
+    import select
+    import sys
+    import threading
+    import time
+    import vim
+    import warnings
+    import xmpp
+
+    warnings.filterwarnings('ignore', category=DeprecationWarning)
+
     try:
         import simplejson as json
     except:
@@ -92,7 +100,7 @@ except:
 class VimChatScope:
     #Global Variables
     accounts = {}
-    groupChatNames = [] # The names you are using in group chats.
+    groupChatNames = []  # The names you are using in group chats.
     otr_basedir = '~/.vimchat/otr'
     otr_keyfile = 'otrkey'
     otr_fingerprints = 'fingerprints'
@@ -132,13 +140,14 @@ class VimChatScope:
             pynotify_enabled = True
         else:
             pynotify_enabled = False
-        
+
         #Growl Setup
         if self.growl_enabled:
-           self.growl_notifier = Growl.GrowlNotifier  ("VimChat", ["msg txrx", "account status"])
-           self.growl_notifier.register ()
-           self.growl_icon = Image.imageFromPath(os.path.expanduser('~/.vimchat/icon.gif'))
-
+            self.growl_notifier = Growl.GrowlNotifier("VimChat", 
+                ["msg txrx", "account status"])
+            self.growl_notifier.register()
+            self.growl_icon = Image.imageFromPath(
+                os.path.expanduser('~/.vimchat/icon.gif'))
 
         otr_enabled = int(vim.eval('g:vimchat_otr'))
         otr_logging = int(vim.eval('g:vimchat_logotr'))
@@ -162,7 +171,7 @@ class VimChatScope:
 
         # Signon to accounts listed in .vimchat/config
         if os.path.exists(self.configFilePath):
-            config = RawConfigParser();
+            config = RawConfigParser()
             config.read(self.configFilePath)
             if config.has_section('accounts'):
                 for jid in config.options('accounts'):
@@ -178,6 +187,7 @@ class VimChatScope:
                 self.statusIcon.start()
                 self.blinktimeout = int(vim.eval('g:vimchat_blinktimeout'))
     #}}}
+    #{{{ stop
     def stop(self):
         if self.statusIcon != None:
             self.statusIcon.stop()
@@ -200,17 +210,23 @@ class VimChatScope:
         #}}}
         #{{{ create_privkey
         def create_privkey(self, opdata=None, accountname=None, protocol=None):
-            # should give the user some visual feedback here, generating can take some time!
-            # the private key MUST be available when this method returned
-            print "Need OTR key for: " + accountname + ". :VimChatGenerateKey to create one"
+            # should give the user some visual feedback here, 
+            # generating can take some time! the private key MUST 
+            # be available when this method returned
+            print "Need OTR key for: %s :VimChatGenerateKey to create one" % (
+                accountname)
+
             #TODO
             #VimChat.otrGenerateKey() 
         #}}}
         #{{{ is_logged_in
-        def is_logged_in(self, opdata=None, accountname=None, protocol=None, recipient=None):
+        def is_logged_in(self, opdata=None, accountname=None,
+            protocol=None, recipient=None):
+
             if accountname in VimChat.accounts.keys():
                 if recipient:
-                    priority = VimChat.accounts[accountname]._roster.getPriority(recipient)
+                    priority = VimChat. \
+                        accounts[accountname]._roster.getPriority(recipient)
                     if priority:
                         return True
                     return False
@@ -220,26 +236,36 @@ class VimChatScope:
                 return False
         #}}}
         #{{{ inject_message
-        def inject_message(self, opdata=None, accountname=None, protocol=None, recipient=None, message=None):
+        def inject_message(self, opdata=None, accountname=None,
+            protocol=None, recipient=None, message=None):
+
             if accountname in VimChat.accounts.keys():
                 if recipient and message:
-                    VimChat.accounts[accountname].jabberSendMessage(recipient, message)
+                    VimChat.accounts[accountname].jabberSendMessage(recipient,
+                        message)
                 else:
                     print "Error in inject_message"
         #}}}
         #{{{ notify
-        def notify(sef, opdata=None, level=None, accountname=None, protocol=None, username=None, title=None, primary=None, secondary=None):
+        def notify(sef, opdata=None, level=None, accountname=None,
+            protocol=None, username=None,title=None, primary=None,
+            secondary=None):
+
             # show a small dialog or something like that
-            # level is otr.OTRL_NOTIFY_ERROR, otr.OTRL_NOTIFY_WARNING or otr.OTRL_NOTIFY_INFO
-            # primary and secondary are the messages that should be displayed
+            # level is otr.OTRL_NOTIFY_ERROR, otr.OTRL_NOTIFY_WARNING
+            # or otr.OTRL_NOTIFY_INFO primary and secondary are the
+            # messages that should be displayed
             print "Notify: title: " + title + " primary: " + primary + \
                 " secondary: " + secondary
         #}}}
         #{{{ display_otr_message
-        def display_otr_message(self, opdata=None, accountname=None, protocol=None, username=None, msg=None):
+        def display_otr_message(self, opdata=None, accountname=None,
+            protocol=None, username=None, msg=None):
+
             # this usually logs to the conversation window
 
-            #write_message(our_account=accountname, proto=protocol, contact=username, message=msg)
+            #write_message(our_account=accountname, proto=protocol,
+            # contact=username, message=msg)
             # NOTE: this function MUST return 0 if it processed the message
             # OR non-zero, the message will then be passed to notify() by OTR
             print "Got OTR Message"
@@ -247,9 +273,11 @@ class VimChatScope:
         #}}}
         #{{{ update_context_list
         def update_context_list(self, opdata=None):
-            # this method may provide some visual feedback when the context list was updated
-            # this may be useful if you have a central way of setting fingerprints' trusts
-            # and you want to update the list of contexts to consider in this way
+            # this method may provide some visual feedback when
+            # the context list was updated.  This may be useful
+            # if you have a central way of setting fingerprints' trusts
+            # and you want to update the list of contexts to consider
+            #in this way
             pass
         #}}}
         #{{{ protocol_name
@@ -262,12 +290,13 @@ class VimChatScope:
         def new_fingerprint(
             self, opdata=None, userstate=None, accountname=None,
             protocol=None, username=None, fingerprint=None):
-            
+
             human_fingerprint = ""
             try:
                 human_fingerprint = otr.otrl_privkey_hash_to_human(fingerprint)
-                #write_message(our_account=accountname, proto=protocol, contact=username,
-                #   message="New fingerprint: %s"%human_fingerprint)
+                #write_message(our_account=accountname, proto=protocol,
+                # contact=username,
+                # message="New fingerprint: %s"%human_fingerprint)
                 return human_fingerprint
             except:
                 pass
@@ -286,15 +315,16 @@ class VimChatScope:
         def gone_secure(self, opdata=None, context=None):
             trust = context.active_fingerprint.trust
             if trust:
-               trust = "V"
+                trust = "V"
             else:
-               trust = "U"
-            
+                trust = "U"
+
             buf = VimChat.beginChat(context.accountname, context.username)
             if buf:
                 VimChat.appendStatusMessage(context.accountname, 
                     buf,"[OTR]","-- " + trust + " OTR Connection Started")
-                print trust+" OTR Connection Started with "+str(context.username)
+                print trust + " OTR Connection Started with " + \
+                    str(context.username)
         #}}}
         #{{{ gone_insecure
         def gone_insecure(self, opdata=None, context=None):
@@ -318,7 +348,8 @@ class VimChatScope:
                     jid = "[OTR]"
                     VimChat.appendStatusMessage(context.accountname, 
                         buf,"[OTR]","-- Secured OTR Connection Refreshed")
-                    print "Secure OTR Connection Refreshed with "+str(context.username)
+                    print "Secure OTR Connection Refreshed with " + \
+                        str(context.username)
             except Exception, e:
                 print "Error in still_secure: " + str(e)
         #}}}
@@ -361,7 +392,7 @@ class VimChatScope:
             self._jid = jid
             self._jids = jid.split('/')[0]
             self._roster = roster
-            threading.Thread.__init__ ( self )
+            threading.Thread.__init__(self)
             self.jabber = jabberClient
             self.online = 0
             self._protocol = 'xmpp'
@@ -381,7 +412,7 @@ class VimChatScope:
             #set up otr
             self.otrSetup()
             while self.online:
-                (i , o, e) = select.select(socketlist,[],[],1)
+                (i, o, e) = select.select(socketlist, [], [], 1)
                 for each in i:
                     if each == self.xmppS:
                         self.jabber.Process(1)
@@ -408,54 +439,65 @@ class VimChatScope:
                     #OTR Stuff
                     #{{{ Check for verification stuff
                     is_internal, message, tlvs = otr.otrl_message_receiving(
-                        self._otr_userstate, (
-                            VimChat.OtrOps(),None),self._jids,self._protocol,jid, body)
+                        self._otr_userstate, (VimChat.OtrOps(),None),
+                        self._jids,self._protocol,jid, body)
 
                     context = otr.otrl_context_find(
                         self._otr_userstate,jid,self._jids,self._protocol,1)[0]
 
-
-                    
-                    if otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP_ABORT) is not None:
+                    if otr.otrl_tlv_find(tlvs,
+                        otr.OTRL_TLV_SMP_ABORT) is not None:
                         self.otrAbortVerify(context)
-                    elif otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP1) is not None:
-                        if context.smstate.nextExpected != otr.OTRL_SMP_EXPECT1:
+                    elif otr.otrl_tlv_find(tlvs,
+                        otr.OTRL_TLV_SMP1) is not None:
+                        if context.smstate.nextExpected != \
+                            otr.OTRL_SMP_EXPECT1:
                             self.otrAbortVerify(context)
                         else:
                             #TODO: prompt user for secret
                             pass
-                    elif otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP1Q) is not None:
-                        if context.smstate.nextExpected != otr.OTRL_SMP_EXPECT1:
+                    elif otr.otrl_tlv_find(tlvs,
+                        otr.OTRL_TLV_SMP1Q) is not None:
+                        if context.smstate.nextExpected != \
+                            otr.OTRL_SMP_EXPECT1:
                             self.otrAbortVerify(context)
                         else:
                             tlv = otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP1Q)
                             VimChat.otrSMPRequestNotify(
                                 context.accountname, context.username,tlv.data)
-                    elif otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP2) is not None:
-                        if context.smstate.nextExpected != otr.OTRL_SMP_EXPECT2:
+                    elif otr.otrl_tlv_find(tlvs,
+                        otr.OTRL_TLV_SMP2) is not None:
+                        if context.smstate.nextExpected != \
+                            otr.OTRL_SMP_EXPECT2:
                             self.otrAbortVerify(context)
                         else:
                             context.smstate.nextExpected = otr.OTRL_SMP_EXPECT4
-                    elif otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP3) is not None:
-                        if context.smstate.nextExpected != otr.OTRL_SMP_EXPECT3:
+                    elif otr.otrl_tlv_find(tlvs,
+                        otr.OTRL_TLV_SMP3) is not None:
+                        if context.smstate.nextExpected != \
+                            otr.OTRL_SMP_EXPECT3:
                             self.otrAbortVerify(context)
                         else:
                             if context.smstate.sm_prog_state == \
                                 otr.OTRL_SMP_PROG_SUCCEEDED:
                                 self.otrSMPVerifySuccess(context)
-                                print "Successfully verified " + context.username
+                                print "Successfully verified " + \
+                                    context.username
                             else:
                                 self.otrSMPVerifyFailed(context)
                                 print "Failed to verify " + context.username
-                    elif otr.otrl_tlv_find(tlvs, otr.OTRL_TLV_SMP4) is not None:
-                        if context.smstate.nextExpected != otr.OTRL_SMP_EXPECT4:
+                    elif otr.otrl_tlv_find(tlvs,
+                        otr.OTRL_TLV_SMP4) is not None:
+                        if context.smstate.nextExpected != \
+                            otr.OTRL_SMP_EXPECT4:
                             self.otrAbortVerify(context)    
                         else:
                             context.smstate.nextExpected = otr.OTRL_SMP_EXPECT1
                             if context.smstate.sm_prog_state == \
                                 otr.OTRL_SMP_PROG_SUCCEEDED:
                                 self.otrSMPVerifySuccess(context)
-                                print "Successfully verified " + context.username
+                                print "Successfully verified " + \
+                                    context.username
                             else:
                                 self.otrSMPVerifyFailed(context)
                                 print "Failed to verify " + context.username
@@ -475,7 +517,8 @@ class VimChatScope:
                                 secure = "U"
 
                     if not is_internal:
-                        VimChat.messageReceived(self._jids, fromJid, message.strip(),secure)
+                        VimChat.messageReceived(self._jids, fromJid,
+                            message.strip(),secure)
 
                 elif type == "groupchat":
                     parts = fromJid.split('/')
@@ -498,7 +541,9 @@ class VimChatScope:
                 show = str(unicode(msg.getShow()).encode('utf-8'))
                 status = str(unicode(msg.getStatus()).encode('utf-8'))
                 priority = str(unicode(msg.getPriority()).encode('utf-8'))
-                #print fromJid, ' jid: ', msg.getJid(), ' status: ', status, ' reason: ', msg.getReason(), ' stat code: ', msg.getStatusCode()
+                # print fromJid, ' jid: ', msg.getJid(), ' status: ',
+                # status, ' reason: ', msg.getReason(), ' stat code: ',
+                # msg.getStatusCode()
 
                 if show == "None":
                     if priority != "None":
@@ -534,13 +579,14 @@ class VimChatScope:
             new_message = otr.otrl_message_sending(
                 self._otr_userstate,(VimChat.OtrOps(),None),
                 self._jids,self._protocol,tojid,msg,None)
-                
+
             context = otr.otrl_context_find(
                 self._otr_userstate,tojid,self._jids,self._protocol,1)[0]
 
             #if context.msgstate == otr.OTRL_MSGSTATE_ENCRYPTED
             otr.otrl_message_fragment_and_send(
-                (VimChat.OtrOps(),None),context,new_message,otr.OTRL_FRAGMENT_SEND_ALL)
+                (VimChat.OtrOps(), None), context, new_message, 
+                otr.OTRL_FRAGMENT_SEND_ALL)
         #}}}
         #{{{ jabberSendMessage
         def jabberSendMessage(self, tojid, msg):
@@ -632,7 +678,6 @@ class VimChatScope:
                     except:
                         pass
 
-
             fprintPath = os.path.expanduser(
                 VimChat.otr_basedir + '/' + VimChat.otr_fingerprints)
             if not os.path.isfile(fprintPath):
@@ -661,7 +706,7 @@ class VimChatScope:
             self.otrSetTrust(jid,"manual")
             buf = VimChat.beginChat(self._jids, jid)
             if buf:
-                VimChat.appendStatusMessage( self._jids,
+                VimChat.appendStatusMessage(self._jids,
                     buf,"[OTR]","-- Verified Fingerprint of " + jid)
                 print "Verified "+jid
         #}}}
@@ -671,13 +716,15 @@ class VimChatScope:
                 self._otr_userstate,jid,self._jids,self._protocol,1)[0]
 
             otr.otrl_message_initiate_smp_q(
-                self._otr_userstate,(VimChat.OtrOps(), None),context,question,secret)
+                self._otr_userstate, (VimChat.OtrOps(), None),
+                context,question,secret)
 
             buf = VimChat.beginChat(self._jids, jid)
             if buf:
                 VimChat.appendMessage(context.accountname,
                     buf,"-- Sent Question to "+ jid +" for verification.")
-                print "Sent Question for verification to "+str(context.username)
+                print "Sent Question for verification to " + \
+                    str(context.username)
         #}}}
         #{{{ otrSMPVerifySuccess
         def otrSMPVerifySuccess(self,context):
@@ -752,7 +799,7 @@ class VimChatScope:
         def __init__(self):
             self.status_icon_default = "~/.vimchat/icon.gif"
             self.status_icon_path = self.status_icon_default
-            threading.Thread.__init__ ( self )
+            threading.Thread.__init__(self)
         #}}}
         #{{{ run
         def run(self):
@@ -772,7 +819,8 @@ class VimChatScope:
         def changeStatus(self,statusText=""):
             if len(statusText)>0:
                 statusText = "_"+statusText
-            file_path = os.path.expanduser(re.sub("(\..[^.]*)$", statusText+"\\1", self.status_icon_default))
+            file_path = os.path.expanduser(re.sub("(\..[^.]*)$",
+                statusText+"\\1", self.status_icon_default))
             if not os.path.exists(file_path): 
                 file_path = os.path.expanduser(self.status_icon_default)
                 if not os.path.exists(file_path):
@@ -791,7 +839,7 @@ class VimChatScope:
         #{{{ __init__
         def __init__(self, tt):
             self.timeoutTime = tt
-            threading.Thread.__init__ ( self )
+            threading.Thread.__init__(self)
         #}}}
         #{{{ run
         def run(self):
@@ -834,7 +882,8 @@ class VimChatScope:
         if not con:
             print 'could not connect!\n'
             if self.growl_enabled:
-                self.growl_notifier.notify ("account status", "VimChat", "Could not connect.", self.growl_icon)
+                self.growl_notifier.notify("account status", "VimChat",
+                    "Could not connect.", self.growl_icon)
             return 0
 
         auth=jabberClient.auth(
@@ -842,7 +891,8 @@ class VimChatScope:
         if not auth:
             print 'could not authenticate!\n'
             if self.growl_enabled:
-                self.growl_notifier.notify ("account status", "VimChat", "Could not authenticate.", self.growl_icon)
+                self.growl_notifier.notify("account status", "VimChat",
+                    "Could not authenticate.", self.growl_icon)
             return 0
 
         jabberClient.sendInitPresence(requestRoster=1)
@@ -858,7 +908,8 @@ class VimChatScope:
         self.accounts[accountJid].start()
         print "Connected with " + jid
         if self.growl_enabled:
-            self.growl_notifier.notify ("account status", "VimChat", "Signed into " + jid + " successfully", self.growl_icon)
+            self.growl_notifier.notify("account status", "VimChat",
+                "Signed into " + jid + " successfully", self.growl_icon)
     #}}}
     #{{{ signOff
     def signOff(self):
@@ -897,14 +948,18 @@ class VimChatScope:
                 del accounts[account]
                 print "%s was signed off of VimChat!" % (account)
                 if self.growl_enabled:
-                    self.growl_notifier.notify ("account status", "VimChat", "%s was signed off of VimChat!" %(account), self.growl_icon)
+                    self.growl_notifier.notify("account status", "VimChat",
+                        "%s was signed off of VimChat!" %(account),
+                        self.growl_icon)
             except:
                 print "Error signing off %s VimChat!" % (account)
                 print sys.exc_info()[0:2]
         else:
             print 'Error: [%s] is an invalid account.' % (account)
             if self.growl_enabled:
-                    self.growl_notifier.notify ("account status", "VimChat", "Error signing off %s VimChat" %(account), self.growl_icon)
+                    self.growl_notifier.notify("account status", "VimChat",
+                        "Error signing off %s VimChat" %(account),
+                        self.growl_icon)
     #}}}
     #{{{ showStatus
     def showStatus(self):
@@ -961,7 +1016,8 @@ class VimChatScope:
     #{{{ toggleBuddyList
     def toggleBuddyList(self):
         # godlygeek's way to determine if a buffer is hidden in one line:
-        #:echo len(filter(map(range(1, tabpagenr('$')), 'tabpagebuflist(v:val)'), 'index(v:val, 4) == 0'))
+        # :echo len(filter(map(range(1, tabpagenr('$')),
+        # 'tabpagebuflist(v:val)'), 'index(v:val, 4) == 0'))
 
         if not self.accounts:
             print "Not Connected!  Please connect first."
@@ -1103,7 +1159,7 @@ You can type \on to reconnect.
 
     #CHAT BUFFERS
     #{{{ beginChat
-    def beginChat(self, fromAccount, toJid, groupChat = False):
+    def beginChat(self, fromAccount, toJid, groupChat=False):
         #Set the ChatFile
         connection = self.accounts[fromAccount]
         if toJid in connection._chats.keys():
@@ -1130,7 +1186,7 @@ You can type \on to reconnect.
 
             vim.command("let b:buddyId = '" + toJid + "'")
             vim.command("let b:account = '" + fromAccount + "'")
-            self.setupChatBuffer(groupChat);
+            self.setupChatBuffer(groupChat)
             return vim.current.buffer
     #}}}
     #{{{ setupChatBuffer
@@ -1179,8 +1235,8 @@ You can type \on to reconnect.
         #Create sending buffer
         sendBuffer = "sendTo:" + toJid
         vim.command("silent bo new " + sendBuffer)
-        vim.command("silent let b:buddyId = '" + toJid +  "'")
-        vim.command("silent let b:account = '" + account +  "'")
+        vim.command("silent let b:buddyId = '" + toJid + "'")
+        vim.command("silent let b:account = '" + account + "'")
         vim.command("setlocal filetype=vimchat")
 
         commands = """\
@@ -1225,9 +1281,9 @@ You can type \on to reconnect.
         #Get the first line
         if resource:
             line = tstamp + " " + secureString + \
-                user + "/" + resource + ": " + lines.pop(0);
+                user + "/" + resource + ": " + lines.pop(0)
         else:
-            line = tstamp + " " + secureString + user + ": " + lines.pop(0);
+            line = tstamp + " " + secureString + user + ": " + lines.pop(0)
 
         buf.append(line)
         #TODO: remove these lines
@@ -1261,7 +1317,7 @@ You can type \on to reconnect.
         tstamp = self.getTimestamp()
 
         #Get the first line
-        line = tstamp + prefix + ": " + lines.pop(0);
+        line = tstamp + prefix + ": " + lines.pop(0)
 
         buf.append(line)
         VimChat.log(account, jid, line)
@@ -1492,7 +1548,6 @@ You can type \on to reconnect.
         if not self.isGroupChat():
             VimChat.appendMessage(account, chatBuf,body,'Me',secure)
 
-
         vim.command('hide')
         vim.command('sbuffer ' + str(chatBuf.number))
         vim.command('normal G')
@@ -1500,7 +1555,8 @@ You can type \on to reconnect.
     #{{{ setStatus
     def setStatus(self, status=None):
         if not status:
-            status = str(vim.eval('input("Status: (away,xa,dnd,chat),message,priority: ")'))
+            status = str(vim.eval(
+                'input("Status: (away,xa,dnd,chat),message,priority: ")'))
 
         parts = status.split(',')
         show = parts[0]
@@ -1588,12 +1644,13 @@ You can type \on to reconnect.
             print 'Could not notify:', message, 'from:', jid
         
         if self.growl_enabled:
-            self.growl_notifier.notify ("msg txrx", "VimChat - %s" % (jid), message, self.growl_icon)
+            self.growl_notifier.notify("msg txrx", "VimChat - %s" % (jid),
+                message, self.growl_icon)
     #}}}
     #{{{ notify
     def notify(self, jid, msg, groupChat):
         # refreshes the buffer so the new message shows up
-        vim.command("echo ");
+        vim.command("echo ")
 
         if groupChat:
             msgLowered = msg.lower()
@@ -1610,7 +1667,7 @@ You can type \on to reconnect.
             if not foundMyName:
                 return
 
-        vim.command("set tabline=%#Error#New-message-from-" + jid);
+        vim.command("set tabline=%#Error#New-message-from-" + jid)
 
         if pynotify_enabled and 'DBUS_SESSION_BUS_ADDRESS' in os.environ:
             pynotify.init('vimchat')
